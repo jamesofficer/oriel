@@ -46,6 +46,7 @@ struct SwitcherView: View {
     let hasPermission: Bool
     let panelWidth: CGFloat
     let listHeight: CGFloat
+    let panelOpacity: Double
     let onSelect: (SwitcherRow) -> Void
     let onLaunch: (CustomBinding) -> Void
     let onClose: () -> Void
@@ -143,7 +144,7 @@ struct SwitcherView: View {
             }
         }
         .frame(width: panelWidth)
-        .background(panelBackgroundColor, in: RoundedRectangle(cornerRadius: 16))
+        .background(panelBackgroundColor.opacity(panelOpacity), in: RoundedRectangle(cornerRadius: 16))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16)

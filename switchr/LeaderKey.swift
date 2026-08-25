@@ -20,12 +20,7 @@ struct LeaderKey {
     static let `default` = LeaderKey(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey))
 
     static var current: LeaderKey {
-        let defaults = UserDefaults.standard
-        guard defaults.object(forKey: PrefKey.leaderKeyCode) != nil else { return .default }
-        return LeaderKey(
-            keyCode: UInt32(defaults.integer(forKey: PrefKey.leaderKeyCode)),
-            carbonModifiers: UInt32(defaults.integer(forKey: PrefKey.leaderKeyModifiers))
-        )
+        AppPreferences.leaderKey()
     }
 
     var cocoaModifiers: NSEvent.ModifierFlags {

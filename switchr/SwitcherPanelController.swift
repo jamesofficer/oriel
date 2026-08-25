@@ -67,7 +67,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
         // Bound apps with no open windows appear in the closed pinned section.
         // Their key launches or reactivates the app.
-        let showClosed = UserDefaults.standard.object(forKey: PrefKey.showClosedApps) as? Bool ?? true
+        let showClosed = AppPreferences.showClosedApps()
         if showClosed {
             let openBundleIDs = Set(windows.compactMap { $0.app.bundleIdentifier })
             closedApps = CustomBindingsStore.shared.bindings.filter { !openBundleIDs.contains($0.bundleID) }
@@ -100,6 +100,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             availableHeight: maxPanelHeight
         )
         let listHeight = max(1, panelHeight - SwitcherLayout.panelChromeHeight)
+        let panelOpacity = AppPreferences.panelOpacity()
 
         let view = SwitcherView(
             pinnedRows: pinnedRows,
@@ -108,6 +109,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             hasPermission: WindowManager.hasAccessibilityPermission,
             panelWidth: panelWidth,
             listHeight: listHeight,
+            panelOpacity: panelOpacity,
             onSelect: { [weak self] row in self?.select(row) },
             onLaunch: { [weak self] binding in self?.launch(binding) },
             onClose: { [weak self] in self?.hide() }
@@ -126,11 +128,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
         // The panel stays invisible for a beat. A fast leader and letter
         // switches without showing it; it appears only after a short pause.
-        let defaults = UserDefaults.standard
-        let configuredDelay = defaults.object(forKey: PrefKey.revealDelayMilliseconds) == nil
-            ? 100
-            : defaults.integer(forKey: PrefKey.revealDelayMilliseconds)
-        let revealDelay = Double(min(max(configuredDelay, 0), 1_000)) / 1_000
+        let revealDelay = Double(AppPreferences.revealDelayMilliseconds()) / 1_000
         let work = DispatchWorkItem { [weak self] in self?.reveal() }
         revealWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + revealDelay, execute: work)
@@ -145,7 +143,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             return
         }
         revealPending = false
-        let animate = UserDefaults.standard.object(forKey: PrefKey.animatePanel) as? Bool ?? true
+        let animate = AppPreferences.animatePanel()
         if animate {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.12
@@ -199,10 +197,8 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func focus(_ row: SwitcherRow) {
-        let moveTarget = UserDefaults.standard.bool(forKey: PrefKey.bringToCurrentScreen)
-            ? panelScreen
-            : nil
-        let maximize = UserDefaults.standard.bool(forKey: PrefKey.maximizeOnFocus)
+        let moveTarget = AppPreferences.bringToCurrentScreen() ? panelScreen : nil
+        let maximize = AppPreferences.maximizeOnFocus()
         WindowManager.focus(row.window, movingTo: moveTarget, maximizing: maximize)
     }
 

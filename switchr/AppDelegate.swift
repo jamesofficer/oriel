@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let switcher = SwitcherPanelController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppPreferences.registerDefaults()
         promptForAccessibilityIfNeeded()
         registerLeaderKey()
 
