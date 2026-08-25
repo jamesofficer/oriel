@@ -32,36 +32,13 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     func show() {
-        let windows = WindowManager.listWindows()
-        rows = letterAssigner.assign(to: windows)
-
-        // Bound apps with no open windows appear at the bottom; their key
-        // launches (or re-activates) the app instead of focusing a window.
-        let showClosed = UserDefaults.standard.object(forKey: PrefKey.showClosedApps) as? Bool ?? true
-        if showClosed {
-            let openBundleIDs = Set(windows.compactMap { $0.app.bundleIdentifier })
-            closedApps = CustomBindingsStore.shared.bindings.filter { !openBundleIDs.contains($0.bundleID) }
-        } else {
-            closedApps = []
-        }
-
-        let view = SwitcherView(
-            rows: rows,
-            closedApps: closedApps,
-            hasPermission: WindowManager.hasAccessibilityPermission,
-            onSelect: { [weak self] row in self?.select(row) },
-            onLaunch: { [weak self] binding in self?.launch(binding) }
-        )
-        let hosting = NSHostingView(rootView: view)
-        hosting.frame.size = hosting.fittingSize
-
+        let targetScreen = NSScreen.main
         let panel = SwitcherPanel(
-            contentRect: hosting.frame,
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 1),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        panel.contentView = hosting
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -74,23 +51,61 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         panel.onKeyDown = { [weak self] event in self?.handleKey(event) ?? false }
         panel.onFlagsChanged = { [weak self] event in self?.handleFlags(event) }
 
-        if let screen = NSScreen.main {
+        panelScreen = targetScreen
+        self.panel = panel
+
+        // Take keyboard focus before listing windows. Key events from a fast
+        // leader roll then wait for Switchr instead of reaching the old app.
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)
+
+        let windows = WindowManager.listWindows()
+        rows = letterAssigner.assign(to: windows)
+
+        // Bound apps with no open windows appear in the closed pinned section.
+        // Their key launches or reactivates the app.
+        let showClosed = UserDefaults.standard.object(forKey: PrefKey.showClosedApps) as? Bool ?? true
+        if showClosed {
+            let openBundleIDs = Set(windows.compactMap { $0.app.bundleIdentifier })
+            closedApps = CustomBindingsStore.shared.bindings.filter { !openBundleIDs.contains($0.bundleID) }
+        } else {
+            closedApps = []
+        }
+
+        let boundBundleIDs = Set(CustomBindingsStore.shared.bindings.map(\.bundleID))
+        let pinnedRows = rows.filter {
+            guard let bundleID = $0.window.app.bundleIdentifier else { return false }
+            return boundBundleIDs.contains(bundleID)
+        }
+        let otherRows = rows.filter {
+            guard let bundleID = $0.window.app.bundleIdentifier else { return true }
+            return !boundBundleIDs.contains(bundleID)
+        }
+
+        let view = SwitcherView(
+            pinnedRows: pinnedRows,
+            otherRows: otherRows,
+            closedApps: closedApps,
+            hasPermission: WindowManager.hasAccessibilityPermission,
+            onSelect: { [weak self] row in self?.select(row) },
+            onLaunch: { [weak self] binding in self?.launch(binding) }
+        )
+        let hosting = NSHostingView(rootView: view)
+        let contentSize = hosting.fittingSize
+        panel.setContentSize(contentSize)
+        hosting.frame.size = contentSize
+        panel.contentView = hosting
+
+        if let targetScreen {
             let origin = NSPoint(
-                x: screen.visibleFrame.midX - hosting.frame.width / 2,
-                y: screen.visibleFrame.midY - hosting.frame.height / 2
+                x: targetScreen.visibleFrame.midX - contentSize.width / 2,
+                y: targetScreen.visibleFrame.midY - contentSize.height / 2
             )
             panel.setFrameOrigin(origin)
         }
 
-        panelScreen = NSScreen.main
-        self.panel = panel
-
-        // Grace period: the panel takes key immediately so letters land right
-        // away, but stays invisible for a beat. A fast leader+letter chord
-        // switches without the panel ever appearing; it only shows on
-        // hesitation.
-        panel.alphaValue = 0
-        panel.makeKeyAndOrderFront(nil)
+        // The panel stays invisible for a beat. A fast leader and letter
+        // switches without showing it; it appears only after a short pause.
         let work = DispatchWorkItem { [weak self] in self?.reveal() }
         revealWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)

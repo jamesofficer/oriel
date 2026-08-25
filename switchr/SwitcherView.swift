@@ -7,43 +7,141 @@ import AppKit
 import SwiftUI
 
 struct SwitcherView: View {
-    let rows: [SwitcherRow]
+    let pinnedRows: [SwitcherRow]
+    let otherRows: [SwitcherRow]
     let closedApps: [CustomBinding]
     let hasPermission: Bool
     let onSelect: (SwitcherRow) -> Void
     let onLaunch: (CustomBinding) -> Void
 
+    private var activePinnedRows: [SwitcherRow] {
+        pinnedRows.filter { !$0.window.isMinimized }
+    }
+
+    private var minimizedPinnedRows: [SwitcherRow] {
+        pinnedRows.filter(\.window.isMinimized)
+    }
+
+    private var activeOtherRows: [SwitcherRow] {
+        otherRows.filter { !$0.window.isMinimized }
+    }
+
+    private var minimizedOtherRows: [SwitcherRow] {
+        otherRows.filter(\.window.isMinimized)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             if !hasPermission {
                 permissionHint
-            } else if rows.isEmpty && closedApps.isEmpty {
+            } else if pinnedRows.isEmpty && otherRows.isEmpty && closedApps.isEmpty {
                 Text("No windows open")
                     .foregroundStyle(.secondary)
                     .padding(12)
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(rows) { row in
-                            rowView(row)
-                        }
-                        if !closedApps.isEmpty {
-                            if !rows.isEmpty {
-                                Divider()
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Pinned Apps")
+                            .font(.headline)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 4)
+
+                        Divider()
+                            .padding(.horizontal, 8)
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(activePinnedRows) { row in
+                                    rowView(row)
+                                }
+
+                                if !minimizedPinnedRows.isEmpty {
+                                    if !activePinnedRows.isEmpty {
+                                        Divider()
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                    }
+
+                                    Text("Minimized")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.top, 4)
+
+                                    ForEach(minimizedPinnedRows) { row in
+                                        rowView(row)
+                                    }
+                                }
+
+                                if !closedApps.isEmpty {
+                                    if !pinnedRows.isEmpty {
+                                        Divider()
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                    }
+
+                                    Text("Closed")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.top, 4)
+
+                                    ForEach(closedApps) { binding in
+                                        closedAppRow(binding)
+                                    }
+                                }
                             }
-                            ForEach(closedApps) { binding in
-                                closedAppRow(binding)
-                            }
                         }
+                        .frame(maxHeight: 600)
                     }
+                    .frame(width: 440)
+
+                    Divider()
+                        .padding(.horizontal, 4)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Other Windows")
+                            .font(.headline)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 4)
+
+                        Divider()
+                            .padding(.horizontal, 8)
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(activeOtherRows) { row in
+                                    rowView(row)
+                                }
+
+                                if !minimizedOtherRows.isEmpty {
+                                    if !activeOtherRows.isEmpty {
+                                        Divider()
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                    }
+
+                                    Text("Minimized")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.top, 4)
+
+                                    ForEach(minimizedOtherRows) { row in
+                                        rowView(row)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 600)
+                    }
+                    .frame(width: 440)
                 }
-                .frame(maxHeight: 600)
+                .background(OverlayScrollerStyle())
             }
         }
         .padding(8)
-        .frame(width: 460)
+        .frame(width: 900)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)

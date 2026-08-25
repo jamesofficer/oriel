@@ -115,7 +115,7 @@ struct SettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Toggle("Show closed apps with bindings", isOn: $showClosedApps)
-                Text("Apps from App Bindings that aren't open are listed at the bottom of the switcher. Pressing their key launches the app.")
+                Text("Apps from App Bindings that aren't open are listed in the Pinned — Closed section. Pressing their key launches the app.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Toggle("Animate window appearance", isOn: $animatePanel)
@@ -214,7 +214,7 @@ struct SettingsView: View {
 /// wide legacy scroller that reserves its own gutter. A `.background` view
 /// sits beside the Form rather than inside its scroll view, so this searches
 /// down from the window's content view instead of walking up the hierarchy.
-private struct OverlayScrollerStyle: NSViewRepresentable {
+struct OverlayScrollerStyle: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         ScrollerStyler()
     }
