@@ -9,10 +9,6 @@
 import AppKit
 import Carbon.HIToolbox
 
-extension Notification.Name {
-    static let leaderKeyChanged = Notification.Name("leaderKeyChanged")
-}
-
 struct LeaderKey {
     var keyCode: UInt32
     var carbonModifiers: UInt32

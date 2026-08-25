@@ -14,22 +14,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         promptForAccessibilityIfNeeded()
         registerLeaderKey()
 
-        NotificationCenter.default.addObserver(
-            forName: .leaderKeyChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.registerLeaderKey()
-            }
-        }
     }
 
-    func registerLeaderKey() {
+    private func registerLeaderKey() {
         let key = LeaderKey.current
-        HotKeyCenter.shared.register(
-            keyCode: key.keyCode,
-            modifiers: key.carbonModifiers
-        ) { [weak self] in
-            self?.switcher.toggle()
+        do {
+            try HotKeyCenter.shared.register(
+                keyCode: key.keyCode,
+                modifiers: key.carbonModifiers
+            ) { [weak self] in
+                self?.switcher.toggle()
+            }
+        } catch {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Switchr could not register its shortcut"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
         }
     }
 

@@ -87,6 +87,7 @@ private struct BindingKeySheet: View {
     @ObservedObject private var store = CustomBindingsStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var key = ""
+    @State private var saveError: String?
     @FocusState private var keyFieldFocused: Bool
 
     private var conflict: CustomBinding? {
@@ -110,11 +111,16 @@ private struct BindingKeySheet: View {
                 .focused($keyFieldFocused)
                 .onChange(of: key) { _, newValue in
                     key = String(newValue.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(1))
+                    saveError = nil
                 }
                 .onSubmit(save)
 
             if let conflict {
                 Text("\(key.uppercased()) is already assigned to \(conflict.appName)")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            } else if let saveError {
+                Text(saveError)
                     .font(.callout)
                     .foregroundStyle(.red)
             }
@@ -134,7 +140,12 @@ private struct BindingKeySheet: View {
 
     private func save() {
         guard !key.isEmpty, conflict == nil else { return }
-        store.add(CustomBinding(bundleID: app.bundleID, appName: app.name, appPath: app.path, key: key))
-        dismiss()
+        do {
+            try store.add(CustomBinding(bundleID: app.bundleID, appName: app.name, appPath: app.path, key: key))
+            dismiss()
+        } catch {
+            saveError = error.localizedDescription
+            NSSound.beep()
+        }
     }
 }

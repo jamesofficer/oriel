@@ -40,9 +40,7 @@ enum SwitcherLayout {
 }
 
 struct SwitcherView: View {
-    let pinnedRows: [SwitcherRow]
-    let otherRows: [SwitcherRow]
-    let closedApps: [CustomBinding]
+    let content: SwitcherContent<SwitcherRow>
     let hasPermission: Bool
     let panelWidth: CGFloat
     let listHeight: CGFloat
@@ -53,22 +51,6 @@ struct SwitcherView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
-
-    private var activePinnedRows: [SwitcherRow] {
-        pinnedRows.filter { !$0.window.isMinimized }
-    }
-
-    private var minimizedPinnedRows: [SwitcherRow] {
-        pinnedRows.filter(\.window.isMinimized)
-    }
-
-    private var activeOtherRows: [SwitcherRow] {
-        otherRows.filter { !$0.window.isMinimized }
-    }
-
-    private var minimizedOtherRows: [SwitcherRow] {
-        otherRows.filter(\.window.isMinimized)
-    }
 
     private var panelBackgroundColor: Color {
         colorScheme == .dark
@@ -108,7 +90,7 @@ struct SwitcherView: View {
                 permissionHint
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(24)
-            } else if pinnedRows.isEmpty && otherRows.isEmpty && closedApps.isEmpty {
+            } else if content.pinnedCount == 0 && content.otherCount == 0 {
                 Text("No windows open")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 160)
@@ -117,10 +99,10 @@ struct SwitcherView: View {
                     windowColumn(
                         title: "Pinned Apps",
                         symbol: "pin",
-                        count: pinnedRows.count + closedApps.count,
-                        activeRows: activePinnedRows,
-                        minimizedRows: minimizedPinnedRows,
-                        closedApps: closedApps
+                        count: content.pinnedCount,
+                        activeRows: content.activePinned,
+                        minimizedRows: content.minimizedPinned,
+                        closedApps: content.closedApps
                     )
                     .padding(.trailing, 18)
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -130,9 +112,9 @@ struct SwitcherView: View {
                     windowColumn(
                         title: "Other Windows",
                         symbol: "rectangle.on.rectangle",
-                        count: otherRows.count,
-                        activeRows: activeOtherRows,
-                        minimizedRows: minimizedOtherRows,
+                        count: content.otherCount,
+                        activeRows: content.activeOther,
+                        minimizedRows: content.minimizedOther,
                         closedApps: []
                     )
                     .padding(.leading, 18)

@@ -12,6 +12,7 @@ struct LeaderKeySettingsView: View {
     @AppStorage(AppPreferences.Key.leaderKeyModifiers) private var leaderModifiers = AppPreferences.defaultLeaderKeyModifiers
     @State private var isRecording = false
     @State private var keyMonitor: Any?
+    @State private var registrationError: String?
 
     private var leaderKey: LeaderKey {
         LeaderKey(keyCode: UInt32(leaderKeyCode), carbonModifiers: UInt32(leaderModifiers))
@@ -37,14 +38,24 @@ struct LeaderKeySettingsView: View {
                      : "Press this shortcut anywhere to open the switcher.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                if let registrationError {
+                    Text(registrationError)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
             }
         }
         .onDisappear { stopRecording() }
     }
 
     private func startRecording() {
+        registrationError = nil
+        if case let .failure(error) = HotKeyCenter.shared.pause() {
+            registrationError = error.localizedDescription
+            NSSound.beep()
+            return
+        }
         isRecording = true
-        HotKeyCenter.shared.pause()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             capture(event)
         }
@@ -56,7 +67,12 @@ struct LeaderKeySettingsView: View {
         }
         keyMonitor = nil
         isRecording = false
-        HotKeyCenter.shared.resume()
+        do {
+            try HotKeyCenter.shared.resume()
+        } catch {
+            registrationError = error.localizedDescription
+            NSSound.beep()
+        }
     }
 
     private func capture(_ event: NSEvent) -> NSEvent? {
@@ -70,10 +86,17 @@ struct LeaderKeySettingsView: View {
             NSSound.beep()
             return nil
         }
+        do {
+            try HotKeyCenter.shared.replace(keyCode: UInt32(event.keyCode), modifiers: modifiers)
+        } catch {
+            registrationError = error.localizedDescription
+            NSSound.beep()
+            stopRecording()
+            return nil
+        }
         leaderKeyCode = Int(event.keyCode)
         leaderModifiers = Int(modifiers)
         stopRecording()
-        NotificationCenter.default.post(name: .leaderKeyChanged, object: nil)
         return nil
     }
 }

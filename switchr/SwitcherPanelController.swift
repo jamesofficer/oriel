@@ -65,33 +65,27 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         let windows = WindowManager.listWindows()
         rows = letterAssigner.assign(to: windows)
 
-        // Bound apps with no open windows appear in the closed pinned section.
-        // Their key launches or reactivates the app.
-        let showClosed = AppPreferences.showClosedApps()
-        if showClosed {
-            let openBundleIDs = Set(windows.compactMap { $0.app.bundleIdentifier })
-            closedApps = CustomBindingsStore.shared.bindings.filter { !openBundleIDs.contains($0.bundleID) }
-        } else {
-            closedApps = []
-        }
-
-        let boundBundleIDs = Set(CustomBindingsStore.shared.bindings.map(\.bundleID))
-        let pinnedRows = rows.filter {
-            guard let bundleID = $0.window.app.bundleIdentifier else { return false }
-            return boundBundleIDs.contains(bundleID)
-        }
-        let otherRows = rows.filter {
-            guard let bundleID = $0.window.app.bundleIdentifier else { return true }
-            return !boundBundleIDs.contains(bundleID)
-        }
+        let bindings = CustomBindingsStore.shared.bindings
+        let content = SwitcherContentBuilder.build(
+            items: rows.map {
+                SwitcherItem(
+                    value: $0,
+                    bundleID: $0.window.app.bundleIdentifier,
+                    isMinimized: $0.window.isMinimized
+                )
+            },
+            bindings: bindings,
+            showClosedApps: AppPreferences.showClosedApps()
+        )
+        closedApps = content.closedApps
         let pinnedListHeight = SwitcherLayout.listHeight(
-            activeCount: pinnedRows.filter { !$0.window.isMinimized }.count,
-            minimizedCount: pinnedRows.filter(\.window.isMinimized).count,
-            closedCount: closedApps.count
+            activeCount: content.activePinned.count,
+            minimizedCount: content.minimizedPinned.count,
+            closedCount: content.closedApps.count
         )
         let otherListHeight = SwitcherLayout.listHeight(
-            activeCount: otherRows.filter { !$0.window.isMinimized }.count,
-            minimizedCount: otherRows.filter(\.window.isMinimized).count,
+            activeCount: content.activeOther.count,
+            minimizedCount: content.minimizedOther.count,
             closedCount: 0
         )
         let panelHeight = SwitcherLayout.panelHeight(
@@ -103,9 +97,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         let panelOpacity = AppPreferences.panelOpacity()
 
         let view = SwitcherView(
-            pinnedRows: pinnedRows,
-            otherRows: otherRows,
-            closedApps: closedApps,
+            content: content,
             hasPermission: WindowManager.hasAccessibilityPermission,
             panelWidth: panelWidth,
             listHeight: listHeight,

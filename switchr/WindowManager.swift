@@ -127,20 +127,13 @@ enum WindowManager {
             .first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) }
             ?? frame
 
-        var size = frame.size
-        size.width = min(size.width, destination.width)
-        size.height = min(size.height, destination.height)
-
-        // Fractional offset within the source screen's free space, clamped.
-        func fraction(_ position: CGFloat, _ min: CGFloat, _ free: CGFloat) -> CGFloat {
-            free > 0 ? Swift.max(0, Swift.min(1, (position - min) / free)) : 0
-        }
-        let fx = fraction(frame.minX, source.minX, source.width - frame.width)
-        let fy = fraction(frame.minY, source.minY, source.height - frame.height)
-        var origin = CGPoint(
-            x: destination.minX + fx * (destination.width - size.width),
-            y: destination.minY + fy * (destination.height - size.height)
+        let movedFrame = WindowPlacement.destinationFrame(
+            windowFrame: frame,
+            sourceFrame: source,
+            destinationFrame: destination
         )
+        var origin = movedFrame.origin
+        var size = movedFrame.size
 
         if let positionValue = AXValueCreate(.cgPoint, &origin) {
             AXUIElementSetAttributeValue(window.axWindow, kAXPositionAttribute as CFString, positionValue)
