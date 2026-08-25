@@ -3,6 +3,7 @@
 //  switchrTests
 //
 
+import Carbon.HIToolbox
 import XCTest
 @testable import Switchr
 
@@ -21,6 +22,11 @@ final class AppPreferencesTests: XCTestCase {
         defaults = nil
         suiteName = nil
         super.tearDown()
+    }
+
+    func testDefaultLeaderIsCommandSemicolon() {
+        XCTAssertEqual(LeaderKey.default.keyCode, UInt32(kVK_ANSI_Semicolon))
+        XCTAssertEqual(LeaderKey.default.carbonModifiers, UInt32(cmdKey))
     }
 
     func testUsesDefaultsWhenValuesAreMissing() {

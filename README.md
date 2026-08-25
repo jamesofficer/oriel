@@ -11,7 +11,7 @@
 
 ---
 
-Switchr lives in your menu bar. Hit the leader key (⌃Space by default) and a Spotlight-style panel lists every open window, each with a letter. Press the letter and you're there. No cycling through ⌘Tab, no hunting through Mission Control.
+Switchr lives in your menu bar. Hit the leader key (⌘; by default) and a Spotlight-style panel lists every open window, each with a letter. Press the letter and you're there. No cycling through ⌘Tab, no hunting through Mission Control.
 
 ## Screenshots
 
@@ -24,7 +24,7 @@ Switchr lives in your menu bar. Hit the leader key (⌃Space by default) and a S
 - **Stable letters.** Each app keeps the same letter across launches (Safari is always `S`), and extra windows of the same app keep their own letters for as long as they're open, so switching between two browser windows never swaps their keys.
 - **Custom bindings.** Pin a specific key to a specific app in Settings; automatic assignment can never steal it. If the app isn't open, it's listed at the bottom of the switcher and its key launches it.
 - **Clear window groups.** Pinned apps and other windows use separate columns, with active, minimized, and closed states shown clearly.
-- **Configurable leader key.** Record any combination that includes ⌃, ⌥ or ⌘.
+- **Configurable leader key.** Record any combination that includes ⌃, ⌥ or ⌘. Connected external keyboards can override the default leader key.
 - **Adjustable panel.** Set the reveal delay from 0 to 1000 milliseconds and the panel opacity from 80% to 100%.
 - **Bring window to current screen** *(optional)*. On multi-monitor setups, focusing a window can move it to the screen you're looking at, keeping its relative position.
 - **Maximize when focused** *(optional)*. Resizes the focused window edge to edge (a normal resize, not macOS full screen).
@@ -53,10 +53,10 @@ On first launch, grant **Accessibility** access when prompted (System Settings �
 
 | Action | Keys |
 | --- | --- |
-| Open the switcher | ⌃Space (configurable) |
+| Open the switcher | ⌘; (configurable) |
 | Focus a window | its letter |
 | Flick between windows | keep ⌃ held, tap letters, release to finish |
-| Dismiss | Esc, or ⌃Space again |
+| Dismiss | Esc, or the leader key again |
 
 Settings are in the menu bar icon → **Settings…**, covering the leader key, per-app bindings, panel appearance, and the behavior toggles above.
 

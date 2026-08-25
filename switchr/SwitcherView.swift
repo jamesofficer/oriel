@@ -142,9 +142,9 @@ struct SwitcherView: View {
                 .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Switch Window")
+                Text("Switchr")
                     .font(.system(size: 15, weight: .semibold))
-                Text("Press a letter to switch")
+                Text("Press a letter to switch to that window")
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
             }

@@ -45,13 +45,20 @@ enum HotKeyRegistrationError: Error, Equatable, LocalizedError {
     }
 }
 
+protocol HotKeyControlling: AnyObject {
+    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) throws
+    func replace(keyCode: UInt32, modifiers: UInt32) throws
+    func pause() -> Result<Void, HotKeyRegistrationError>
+    func resume() throws
+}
+
 protocol HotKeySystem: AnyObject {
     func installHandler() -> OSStatus
     func register(keyCode: UInt32, modifiers: UInt32) -> OSStatus
     func unregister() -> OSStatus
 }
 
-final class HotKeyCenter {
+final class HotKeyCenter: HotKeyControlling {
     static let shared = HotKeyCenter(system: CarbonHotKeySystem())
 
     private let system: HotKeySystem

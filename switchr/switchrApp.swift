@@ -11,23 +11,29 @@ struct switchrApp: App {
 
     var body: some Scene {
         MenuBarExtra("Switchr", systemImage: "rectangle.stack") {
-            MenuContent(switcher: appDelegate.switcher)
+            MenuContent(
+                switcher: appDelegate.switcher,
+                leaderKeyCoordinator: appDelegate.leaderKeyCoordinator
+            )
         }
 
         Settings {
-            SettingsView()
+            SettingsView(
+                keyboardMonitor: appDelegate.keyboardMonitor,
+                keyboardOverridesStore: appDelegate.keyboardOverridesStore,
+                leaderKeyCoordinator: appDelegate.leaderKeyCoordinator
+            )
         }
     }
 }
 
 private struct MenuContent: View {
     @Environment(\.openSettings) private var openSettings
-    @AppStorage(AppPreferences.Key.leaderKeyCode) private var leaderKeyCode = AppPreferences.defaultLeaderKeyCode
-    @AppStorage(AppPreferences.Key.leaderKeyModifiers) private var leaderModifiers = AppPreferences.defaultLeaderKeyModifiers
     let switcher: SwitcherPanelController
+    @ObservedObject var leaderKeyCoordinator: LeaderKeyCoordinator
 
     var body: some View {
-        Button("Show Switcher  \(LeaderKey(keyCode: UInt32(leaderKeyCode), carbonModifiers: UInt32(leaderModifiers)).displayString)") {
+        Button("Show Switcher  \(leaderKeyCoordinator.selection.leaderKey.displayString)") {
             switcher.toggle()
         }
         Divider()

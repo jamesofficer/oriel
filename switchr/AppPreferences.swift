@@ -87,6 +87,11 @@ enum AppPreferences {
         )
     }
 
+    static func setLeaderKey(_ leaderKey: LeaderKey, in defaults: UserDefaults = .standard) {
+        defaults.set(Int(leaderKey.keyCode), forKey: Key.leaderKeyCode)
+        defaults.set(Int(leaderKey.carbonModifiers), forKey: Key.leaderKeyModifiers)
+    }
+
     private static func boolValue(forKey key: String, defaultValue: Bool, in defaults: UserDefaults) -> Bool {
         guard defaults.object(forKey: key) != nil else { return defaultValue }
         return defaults.bool(forKey: key)

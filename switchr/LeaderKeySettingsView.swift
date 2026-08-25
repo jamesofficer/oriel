@@ -8,6 +8,7 @@ import Carbon.HIToolbox
 import SwiftUI
 
 struct LeaderKeySettingsView: View {
+    @ObservedObject var coordinator: LeaderKeyCoordinator
     @AppStorage(AppPreferences.Key.leaderKeyCode) private var leaderKeyCode = AppPreferences.defaultLeaderKeyCode
     @AppStorage(AppPreferences.Key.leaderKeyModifiers) private var leaderModifiers = AppPreferences.defaultLeaderKeyModifiers
     @State private var isRecording = false
@@ -19,7 +20,7 @@ struct LeaderKeySettingsView: View {
     }
 
     var body: some View {
-        Section("Leader Key") {
+        Section("Default Leader Key") {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(isRecording ? "Press shortcut…" : leaderKey.displayString)
@@ -50,7 +51,7 @@ struct LeaderKeySettingsView: View {
 
     private func startRecording() {
         registrationError = nil
-        if case let .failure(error) = HotKeyCenter.shared.pause() {
+        if case let .failure(error) = coordinator.pause() {
             registrationError = error.localizedDescription
             NSSound.beep()
             return
@@ -68,7 +69,7 @@ struct LeaderKeySettingsView: View {
         keyMonitor = nil
         isRecording = false
         do {
-            try HotKeyCenter.shared.resume()
+            try coordinator.resume()
         } catch {
             registrationError = error.localizedDescription
             NSSound.beep()
@@ -87,7 +88,9 @@ struct LeaderKeySettingsView: View {
             return nil
         }
         do {
-            try HotKeyCenter.shared.replace(keyCode: UInt32(event.keyCode), modifiers: modifiers)
+            try coordinator.setDefaultLeader(
+                LeaderKey(keyCode: UInt32(event.keyCode), carbonModifiers: modifiers)
+            )
         } catch {
             registrationError = error.localizedDescription
             NSSound.beep()

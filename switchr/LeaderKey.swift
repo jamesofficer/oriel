@@ -9,11 +9,11 @@
 import AppKit
 import Carbon.HIToolbox
 
-struct LeaderKey {
+struct LeaderKey: Codable, Equatable {
     var keyCode: UInt32
     var carbonModifiers: UInt32
 
-    static let `default` = LeaderKey(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(controlKey))
+    static let `default` = LeaderKey(keyCode: UInt32(kVK_ANSI_Semicolon), carbonModifiers: UInt32(cmdKey))
 
     static var current: LeaderKey {
         AppPreferences.leaderKey()

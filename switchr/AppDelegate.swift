@@ -5,24 +5,35 @@
 
 import AppKit
 import Carbon.HIToolbox
+import Combine
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let switcher = SwitcherPanelController()
+    let keyboardMonitor = KeyboardDeviceMonitor()
+    let keyboardOverridesStore = KeyboardLeaderOverridesStore.shared
+    lazy var leaderKeyCoordinator = LeaderKeyCoordinator(store: keyboardOverridesStore)
+
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppPreferences.registerDefaults()
         promptForAccessibilityIfNeeded()
-        registerLeaderKey()
-
+        startLeaderKey()
+        keyboardMonitor.$connectedKeyboards
+            .sink { [weak self] keyboards in
+                self?.leaderKeyCoordinator.updateConnectedKeyboards(keyboards)
+            }
+            .store(in: &cancellables)
+        keyboardMonitor.start()
     }
 
-    private func registerLeaderKey() {
-        let key = LeaderKey.current
+    func applicationWillTerminate(_ notification: Notification) {
+        keyboardMonitor.stop()
+    }
+
+    private func startLeaderKey() {
         do {
-            try HotKeyCenter.shared.register(
-                keyCode: key.keyCode,
-                modifiers: key.carbonModifiers
-            ) { [weak self] in
+            try leaderKeyCoordinator.start { [weak self] in
                 self?.switcher.toggle()
             }
         } catch {
