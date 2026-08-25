@@ -33,8 +33,11 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
     func show() {
         let targetScreen = NSScreen.main
+        let visibleFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1_240, height: 900)
+        let panelWidth = min(1_040, max(1, visibleFrame.width - 80))
+        let maxPanelHeight = min(SwitcherLayout.maximumPanelHeight, max(1, visibleFrame.height - 80))
         let panel = SwitcherPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 1),
+            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 1),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -81,28 +84,45 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             guard let bundleID = $0.window.app.bundleIdentifier else { return true }
             return !boundBundleIDs.contains(bundleID)
         }
+        let pinnedListHeight = SwitcherLayout.listHeight(
+            activeCount: pinnedRows.filter { !$0.window.isMinimized }.count,
+            minimizedCount: pinnedRows.filter(\.window.isMinimized).count,
+            closedCount: closedApps.count
+        )
+        let otherListHeight = SwitcherLayout.listHeight(
+            activeCount: otherRows.filter { !$0.window.isMinimized }.count,
+            minimizedCount: otherRows.filter(\.window.isMinimized).count,
+            closedCount: 0
+        )
+        let panelHeight = SwitcherLayout.panelHeight(
+            leftListHeight: pinnedListHeight,
+            rightListHeight: otherListHeight,
+            availableHeight: maxPanelHeight
+        )
+        let listHeight = max(1, panelHeight - SwitcherLayout.panelChromeHeight)
 
         let view = SwitcherView(
             pinnedRows: pinnedRows,
             otherRows: otherRows,
             closedApps: closedApps,
             hasPermission: WindowManager.hasAccessibilityPermission,
+            panelWidth: panelWidth,
+            listHeight: listHeight,
             onSelect: { [weak self] row in self?.select(row) },
-            onLaunch: { [weak self] binding in self?.launch(binding) }
+            onLaunch: { [weak self] binding in self?.launch(binding) },
+            onClose: { [weak self] in self?.hide() }
         )
         let hosting = NSHostingView(rootView: view)
-        let contentSize = hosting.fittingSize
+        let contentSize = NSSize(width: panelWidth, height: panelHeight)
         panel.setContentSize(contentSize)
         hosting.frame.size = contentSize
         panel.contentView = hosting
 
-        if let targetScreen {
-            let origin = NSPoint(
-                x: targetScreen.visibleFrame.midX - contentSize.width / 2,
-                y: targetScreen.visibleFrame.midY - contentSize.height / 2
-            )
-            panel.setFrameOrigin(origin)
-        }
+        let origin = NSPoint(
+            x: visibleFrame.midX - contentSize.width / 2,
+            y: visibleFrame.midY - contentSize.height / 2
+        )
+        panel.setFrameOrigin(origin)
 
         // The panel stays invisible for a beat. A fast leader and letter
         // switches without showing it; it appears only after a short pause.
@@ -187,6 +207,9 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        if event.isARepeat {
+            return true
+        }
         if event.keyCode == 53 { // Escape
             hide()
             return true
