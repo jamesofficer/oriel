@@ -14,6 +14,7 @@ enum PrefKey {
     static let maximizeOnFocus = "maximizeWindowWhenFocused"
     static let animatePanel = "animateSwitcherAppearance"
     static let showClosedApps = "showClosedAppsInSwitcher"
+    static let revealDelayMilliseconds = "switcherRevealDelayMilliseconds"
     static let leaderKeyCode = "leaderKeyCode"
     static let leaderKeyModifiers = "leaderKeyModifiers"
 }
@@ -23,6 +24,7 @@ struct SettingsView: View {
     @AppStorage(PrefKey.maximizeOnFocus) private var maximizeOnFocus = false
     @AppStorage(PrefKey.animatePanel) private var animatePanel = true
     @AppStorage(PrefKey.showClosedApps) private var showClosedApps = true
+    @AppStorage(PrefKey.revealDelayMilliseconds) private var revealDelayMilliseconds = 100
     @AppStorage(PrefKey.leaderKeyCode) private var leaderKeyCode = Int(LeaderKey.default.keyCode)
     @AppStorage(PrefKey.leaderKeyModifiers) private var leaderModifiers = Int(LeaderKey.default.carbonModifiers)
 
@@ -116,6 +118,25 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 Toggle("Show closed apps with bindings", isOn: $showClosedApps)
                 Text("Apps from App Bindings that aren't open are listed in the Pinned — Closed section. Pressing their key launches the app.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("Switcher reveal delay")
+                    Spacer()
+                    TextField("", value: $revealDelayMilliseconds, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Switcher reveal delay in milliseconds")
+                        .onChange(of: revealDelayMilliseconds) { _, value in
+                            revealDelayMilliseconds = min(max(value, 0), 1_000)
+                        }
+                    Text("ms")
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                }
+                Text("Sets how long Switchr waits before it shows the panel. The value must be from 0 to 1000 milliseconds.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Toggle("Animate window appearance", isOn: $animatePanel)

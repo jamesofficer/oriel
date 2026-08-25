@@ -106,9 +106,14 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
         // The panel stays invisible for a beat. A fast leader and letter
         // switches without showing it; it appears only after a short pause.
+        let defaults = UserDefaults.standard
+        let configuredDelay = defaults.object(forKey: PrefKey.revealDelayMilliseconds) == nil
+            ? 100
+            : defaults.integer(forKey: PrefKey.revealDelayMilliseconds)
+        let revealDelay = Double(min(max(configuredDelay, 0), 1_000)) / 1_000
         let work = DispatchWorkItem { [weak self] in self?.reveal() }
         revealWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + revealDelay, execute: work)
     }
 
     private func reveal() {
