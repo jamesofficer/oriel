@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="switchr/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" alt="Switchr icon">
+  <img src="Oriel/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" alt="Oriel icon">
 </p>
 
-<h1 align="center">Switchr</h1>
+<h1 align="center">Oriel</h1>
 
 <p align="center">
   Keyboard-driven window switcher for macOS.<br>
@@ -11,7 +11,7 @@
 
 ---
 
-Switchr lives in your menu bar. Hit the leader key (⌘; by default) and a Spotlight-style panel lists every open window, each with a letter. Press the letter and you're there. No cycling through ⌘Tab, no hunting through Mission Control.
+Oriel lives in your menu bar. Hit the leader key (⌘; by default) and a Spotlight-style panel lists every open window, each with a letter. Press the letter and you're there. No cycling through ⌘Tab, no hunting through Mission Control.
 
 ## Screenshots
 
@@ -32,17 +32,17 @@ Switchr lives in your menu bar. Hit the leader key (⌘; by default) and a Spotl
 
 ## Installation
 
-Switchr isn't distributed pre-built yet, so you build it from source:
+Oriel isn't distributed pre-built yet, so you build it from source:
 
 ```sh
-git clone https://github.com/jamesofficer/switchr.git
-cd switchr
-xcodebuild -project switchr.xcodeproj -scheme switchr -configuration Release build
-cp -R ~/Library/Developer/Xcode/DerivedData/switchr-*/Build/Products/Release/Switchr.app /Applications/
-open /Applications/Switchr.app
+git clone https://github.com/jamesofficer/switchr.git Oriel
+cd Oriel
+xcodebuild -project Oriel.xcodeproj -scheme Oriel -configuration Release build
+cp -R ~/Library/Developer/Xcode/DerivedData/Oriel-*/Build/Products/Release/Oriel.app /Applications/
+open /Applications/Oriel.app
 ```
 
-On first launch, grant **Accessibility** access when prompted (System Settings → Privacy & Security → Accessibility). Switchr needs it to list and focus other apps' windows, and that's all it's used for.
+On first launch, grant **Accessibility** access when prompted (System Settings → Privacy & Security → Accessibility). Oriel needs it to list and focus other apps' windows, and that's all it's used for.
 
 ### Requirements
 
@@ -65,6 +65,6 @@ Settings are in the menu bar icon → **Settings…**, covering the leader key, 
 Build and run the automated tests with:
 
 ```sh
-xcodebuild -project switchr.xcodeproj -scheme switchr -configuration Debug build
-xcodebuild test -project switchr.xcodeproj -scheme switchr -configuration Debug
+xcodebuild -project Oriel.xcodeproj -scheme Oriel -configuration Debug build
+xcodebuild test -project Oriel.xcodeproj -scheme Oriel -configuration Debug
 ```

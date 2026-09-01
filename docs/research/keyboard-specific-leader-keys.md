@@ -2,11 +2,11 @@
 
 ## Question
 
-Can Switchr use a different leader key for each connected keyboard?
+Can Oriel use a different leader key for each connected keyboard?
 
 ## Conclusion
 
-Yes, if the rule is based on **which keyboard is connected**. Switchr can watch keyboard connection and removal events, resolve the applicable profile, and replace its registered Carbon hotkey.
+Yes, if the rule is based on **which keyboard is connected**. Oriel can watch keyboard connection and removal events, resolve the applicable profile, and replace its registered Carbon hotkey.
 
 Using a different leader key based on **which physical keyboard produced the key press** is not directly supported by the current Carbon hotkey interface. That version needs a prototype because it must combine two event systems that do not share a documented device identifier.
 
@@ -30,13 +30,13 @@ The fallback cannot distinguish two identical keyboards reliably. A location ID 
 
 `IOHIDManagerRegisterInputValueCallback` receives values from matching HID devices. `IOHIDValueGetElement` returns the input element, and `IOHIDElementGetDevice` returns the device associated with that element.[^hid-guide][^hid-headers]
 
-This means Switchr can observe which keyboard produced a HID value.
+This means Oriel can observe which keyboard produced a HID value.
 
 Listening to HID input requires user approval. The macOS 26.5 SDK states that `kIOHIDRequestTypeListenEvent` access is required to receive reports through `IOHIDManager` or `IOHIDDevice`. The system can request this access when the manager or device is opened.[^hid-access]
 
 ### Current Carbon hotkey limitation
 
-Switchr currently uses `RegisterEventHotKey`. The documented `kEventHotKeyPressed` payload contains the registered `EventHotKeyID`, but it does not contain a HID device reference or physical keyboard identifier.[^carbon-hotkey]
+Oriel currently uses `RegisterEventHotKey`. The documented `kEventHotKeyPressed` payload contains the registered `EventHotKeyID`, but it does not contain a HID device reference or physical keyboard identifier.[^carbon-hotkey]
 
 Core Graphics keyboard events provide a virtual key code and a keyboard-type field, but the documented event fields do not provide a unique physical HID device identifier.[^cg-events]
 
@@ -78,23 +78,23 @@ A prototype could:
 Risks:
 
 - Apple does not document callback ordering between HID and Carbon.
-- A hotkey from the wrong keyboard can still be consumed before Switchr rejects it.
+- A hotkey from the wrong keyboard can still be consumed before Oriel rejects it.
 - Matching by key and timestamp can fail under load.
 - It requires Input Monitoring approval.
 
 Using an event tap does not remove the main problem because documented `CGEvent` fields do not include a unique physical device ID.
 
-Opening keyboards with `kIOHIDOptionsTypeSeizeDevice` provides exclusive access, but Switchr would then have to recreate normal keyboard delivery safely. That is too invasive for this app and is not recommended.[^hid-guide]
+Opening keyboards with `kIOHIDOptionsTypeSeizeDevice` provides exclusive access, but Oriel would then have to recreate normal keyboard delivery safely. That is too invasive for this app and is not recommended.[^hid-guide]
 
 ## Prototype result
 
-A connection-only prototype opened `IOHIDManager` successfully on macOS 26.5 and identified the built-in keyboard by product name, location ID, transport, and built-in state. Running the same monitor in Switchr did not show a new approval prompt. An external USB or Bluetooth keyboard is still needed to validate connection callbacks and identity stability on real hardware.
+A connection-only prototype opened `IOHIDManager` successfully on macOS 26.5 and identified the built-in keyboard by product name, location ID, transport, and built-in state. Running the same monitor in Oriel did not show a new approval prompt. An external USB or Bluetooth keyboard is still needed to validate connection callbacks and identity stability on real hardware.
 
 ## Recommendation
 
 Build and validate **Design A** first. It should answer only these questions:
 
-1. Can Switchr receive keyboard connection and removal events without new approval?
+1. Can Oriel receive keyboard connection and removal events without new approval?
 2. Are serial number and location properties stable for the keyboards in use?
 3. Does hot-plugging reliably replace the registered leader key?
 4. What should happen when two configured keyboards are connected?
