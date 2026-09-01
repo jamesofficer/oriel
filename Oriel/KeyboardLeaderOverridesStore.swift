@@ -16,6 +16,7 @@ final class KeyboardLeaderOverridesStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+
         if let data = defaults.data(forKey: Self.defaultsKey),
            let decoded = try? JSONDecoder().decode([KeyboardLeaderOverride].self, from: data) {
             overrides = decoded
@@ -30,6 +31,7 @@ final class KeyboardLeaderOverridesStore: ObservableObject {
         } else {
             overrides.append(override)
         }
+
         save()
     }
 

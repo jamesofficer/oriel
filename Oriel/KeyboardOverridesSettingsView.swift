@@ -128,6 +128,7 @@ struct KeyboardOverridesSettingsView: View {
 
     private func statusText(for override: KeyboardLeaderOverride) -> String {
         if activeOverrideID == override.id { return "Active" }
+
         let isConnected = keyboardMonitor.connectedKeyboards.contains { $0.identity == override.keyboard }
         return isConnected ? "Connected" : "Disconnected"
     }

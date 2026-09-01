@@ -39,6 +39,7 @@ struct LeaderKeySettingsView: View {
                      : "Press this shortcut anywhere to open the switcher.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+
                 if let registrationError {
                     Text(registrationError)
                         .font(.callout)
@@ -51,11 +52,13 @@ struct LeaderKeySettingsView: View {
 
     private func startRecording() {
         registrationError = nil
+
         if case let .failure(error) = coordinator.pause() {
             registrationError = error.localizedDescription
             NSSound.beep()
             return
         }
+
         isRecording = true
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             capture(event)
@@ -66,8 +69,10 @@ struct LeaderKeySettingsView: View {
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
         }
+
         keyMonitor = nil
         isRecording = false
+
         do {
             try coordinator.resume()
         } catch {
@@ -82,11 +87,13 @@ struct LeaderKeySettingsView: View {
             stopRecording()
             return nil
         }
+
         let modifiers = LeaderKey.carbonModifiers(from: event.modifierFlags)
         guard modifiers & UInt32(controlKey | optionKey | cmdKey) != 0 else {
             NSSound.beep()
             return nil
         }
+
         do {
             try coordinator.setDefaultLeader(
                 LeaderKey(keyCode: UInt32(event.keyCode), carbonModifiers: modifiers)
@@ -97,6 +104,7 @@ struct LeaderKeySettingsView: View {
             stopRecording()
             return nil
         }
+
         leaderKeyCode = Int(event.keyCode)
         leaderModifiers = Int(modifiers)
         stopRecording()

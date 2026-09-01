@@ -81,11 +81,13 @@ struct KeyboardOverrideSheet: View {
 
     private func startRecording() {
         errorMessage = nil
+
         if case let .failure(error) = coordinator.pause() {
             errorMessage = error.localizedDescription
             NSSound.beep()
             return
         }
+
         isRecording = true
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             capture(event)
@@ -96,9 +98,13 @@ struct KeyboardOverrideSheet: View {
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
         }
+
         keyMonitor = nil
+
         guard isRecording else { return }
+
         isRecording = false
+
         do {
             try coordinator.resume()
         } catch {
@@ -113,11 +119,13 @@ struct KeyboardOverrideSheet: View {
             stopRecording()
             return nil
         }
+
         let modifiers = LeaderKey.carbonModifiers(from: event.modifierFlags)
         guard modifiers & UInt32(controlKey | optionKey | cmdKey) != 0 else {
             NSSound.beep()
             return nil
         }
+
         leaderKey = LeaderKey(keyCode: UInt32(event.keyCode), carbonModifiers: modifiers)
         stopRecording()
         return nil
@@ -125,6 +133,7 @@ struct KeyboardOverrideSheet: View {
 
     private func saveOverride() {
         guard let leaderKey else { return }
+
         do {
             try coordinator.addOverride(
                 KeyboardLeaderOverride(

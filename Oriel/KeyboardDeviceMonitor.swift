@@ -35,11 +35,13 @@ final class KeyboardDeviceMonitor: ObservableObject {
         guard !isStarted else { return kIOReturnSuccess }
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         let result = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+
         guard result == kIOReturnSuccess else {
             IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
             monitoringError = "Oriel could not monitor connected keyboards (\(result))."
             return result
         }
+
         monitoringError = nil
         isStarted = true
         refreshDevices()
@@ -48,6 +50,7 @@ final class KeyboardDeviceMonitor: ObservableObject {
 
     func stop() {
         guard isStarted else { return }
+
         IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         isStarted = false
@@ -59,19 +62,24 @@ final class KeyboardDeviceMonitor: ObservableObject {
             connectedKeyboards = []
             return
         }
+
         let count = CFSetGetCount(deviceSet)
         var pointers = [UnsafeRawPointer?](repeating: nil, count: count)
         CFSetGetValues(deviceSet, &pointers)
         var identities = Set<KeyboardIdentity>()
         connectedKeyboards = pointers.compactMap { pointer in
             guard let pointer else { return nil }
+
             let device = Unmanaged<IOHIDDevice>.fromOpaque(pointer).takeUnretainedValue()
             let keyboard = Self.keyboardDevice(from: device)
+
             guard identities.insert(keyboard.identity).inserted else { return nil }
+
             return keyboard
         }
         .sorted {
             if $0.isBuiltIn != $1.isBuiltIn { return $0.isBuiltIn }
+
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }
@@ -112,6 +120,7 @@ private func keyboardDevicesChanged(
     device: IOHIDDevice
 ) {
     guard let context else { return }
+
     let monitor = Unmanaged<KeyboardDeviceMonitor>.fromOpaque(context).takeUnretainedValue()
     monitor.refreshDevices()
 }

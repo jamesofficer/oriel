@@ -29,6 +29,7 @@ final class LeaderKeyCoordinator: ObservableObject {
 
     func start(handler: @escaping () -> Void) throws {
         let selection = resolvedSelection()
+
         do {
             try hotKey.register(
                 keyCode: selection.leaderKey.keyCode,
@@ -50,6 +51,7 @@ final class LeaderKeyCoordinator: ObservableObject {
             selection = resolvedSelection()
             return
         }
+
         do {
             try apply(resolvedSelection())
         } catch {
@@ -69,11 +71,13 @@ final class LeaderKeyCoordinator: ObservableObject {
 
     func addOverride(_ override: KeyboardLeaderOverride) throws {
         var overrides = store.overrides
+
         if let index = overrides.firstIndex(where: { $0.keyboard == override.keyboard }) {
             overrides[index] = override
         } else {
             overrides.append(override)
         }
+
         do {
             try apply(resolvedSelection(overrides: overrides))
             store.add(override)
@@ -85,6 +89,7 @@ final class LeaderKeyCoordinator: ObservableObject {
 
     func removeOverride(_ override: KeyboardLeaderOverride) throws {
         let overrides = store.overrides.filter { $0.id != override.id }
+
         do {
             try apply(resolvedSelection(overrides: overrides))
             store.remove(override)
@@ -98,9 +103,11 @@ final class LeaderKeyCoordinator: ObservableObject {
         let destinationIndex = index + offset
         guard store.overrides.indices.contains(index),
               store.overrides.indices.contains(destinationIndex) else { return }
+
         let original = store.overrides
         let destination = offset < 0 ? destinationIndex : destinationIndex + 1
         store.move(fromOffsets: IndexSet(integer: index), toOffset: destination)
+
         do {
             try apply(resolvedSelection())
         } catch {
@@ -136,6 +143,7 @@ final class LeaderKeyCoordinator: ObservableObject {
                 modifiers: candidate.leaderKey.carbonModifiers
             )
         }
+
         selection = candidate
         activationError = nil
     }
