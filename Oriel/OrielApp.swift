@@ -33,7 +33,7 @@ private struct MenuContent: View {
     @ObservedObject var leaderKeyCoordinator: LeaderKeyCoordinator
 
     var body: some View {
-        Button("Show Switcher  \(leaderKeyCoordinator.selection.leaderKey.displayString)") {
+        Button("Show Oriel  \(leaderKeyCoordinator.selection.leaderKey.displayString)") {
             switcher.toggle()
         }
         Divider()
