@@ -3,7 +3,7 @@
 //  Oriel
 //
 //  The user's leader shortcut: a Carbon key code + modifier mask, persisted
-//  in UserDefaults. Defaults to ⌃Space.
+//  in UserDefaults. Defaults to ⌘;.
 //
 
 import AppKit
@@ -14,10 +14,6 @@ struct LeaderKey: Codable, Equatable {
     var carbonModifiers: UInt32
 
     static let `default` = LeaderKey(keyCode: UInt32(kVK_ANSI_Semicolon), carbonModifiers: UInt32(cmdKey))
-
-    static var current: LeaderKey {
-        AppPreferences.leaderKey()
-    }
 
     var cocoaModifiers: NSEvent.ModifierFlags {
         var flags: NSEvent.ModifierFlags = []

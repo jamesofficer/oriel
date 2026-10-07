@@ -299,7 +299,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         guard panel != nil else { return }
         // While the leader modifiers are held down the user is flicking, not
         // browsing: stay hidden and reveal on release instead.
-        if NSEvent.modifierFlags.contains(LeaderKey.current.cocoaModifiers) {
+        if NSEvent.modifierFlags.contains(effectiveLeaderKey().cocoaModifiers) {
             revealPending = true
             return
         }
@@ -372,7 +372,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         focus(row.window)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self, let panel = self.panel else { return }
-            if NSEvent.modifierFlags.contains(LeaderKey.current.cocoaModifiers) {
+            if NSEvent.modifierFlags.contains(effectiveLeaderKey().cocoaModifiers) {
                 panel.makeKey()
             } else {
                 self.hide()
@@ -401,7 +401,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         guard let letter = event.charactersIgnoringModifiers?.lowercased().first else { return false }
         // Letters pressed with the leader modifiers still held flick between
         // windows without closing; a plain letter selects and closes.
-        let leaderFlags = LeaderKey.current.cocoaModifiers
+        let leaderFlags = effectiveLeaderKey().cocoaModifiers
         let holdingLeader = !leaderFlags.isEmpty && event.modifierFlags.contains(leaderFlags)
         guard holdingLeader || !event.modifierFlags.contains(.command) else { return false }
 
@@ -462,7 +462,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func handleFlags(_ event: NSEvent) {
-        guard !event.modifierFlags.contains(LeaderKey.current.cocoaModifiers) else { return }
+        guard !event.modifierFlags.contains(effectiveLeaderKey().cocoaModifiers) else { return }
         if isFlicking {
             hide()
         } else if revealPending {
@@ -473,7 +473,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) {
         // During a flick the focused app steals key; take it back rather than
         // closing, as long as the leader modifiers are still held.
-        if isFlicking, panel != nil, NSEvent.modifierFlags.contains(LeaderKey.current.cocoaModifiers) {
+        if isFlicking, panel != nil, NSEvent.modifierFlags.contains(effectiveLeaderKey().cocoaModifiers) {
             DispatchQueue.main.async { [weak self] in self?.panel?.makeKey() }
             return
         }
