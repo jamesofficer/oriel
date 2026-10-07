@@ -10,7 +10,7 @@ struct OrielApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Oriel", systemImage: "rectangle.stack") {
+        MenuBarExtra("Oriel", image: "MenuBarIcon") {
             MenuContent(
                 switcher: appDelegate.switcher,
                 leaderKeyCoordinator: appDelegate.leaderKeyCoordinator
