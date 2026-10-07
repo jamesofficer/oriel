@@ -27,7 +27,7 @@ enum WindowManager {
 
     /// All standard windows of regular apps, grouped per app, apps sorted by
     /// name so the list order is stable across invocations.
-    static func listWindows() -> [WindowInfo] {
+    nonisolated static func listWindows() -> [WindowInfo] {
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .filter { $0.processIdentifier != NSRunningApplication.current.processIdentifier }
@@ -38,6 +38,8 @@ enum WindowManager {
         // apps at the same time, so the slowest app sets the wait.
         var windowsPerApp = [[WindowInfo]](repeating: [], count: apps.count)
         windowsPerApp.withUnsafeMutableBufferPointer { buffer in
+            // Safe: each index is written by exactly one iteration.
+            nonisolated(unsafe) let buffer = buffer
             DispatchQueue.concurrentPerform(iterations: apps.count) { index in
                 buffer[index] = standardWindows(of: apps[index])
             }
@@ -71,9 +73,9 @@ enum WindowManager {
     }
 
     static func focus(_ window: WindowInfo, movingTo screen: NSScreen? = nil, maximizing: Bool = false) {
-        if window.isMinimized {
-            AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        }
+        // The window list can be out of date, so do not trust isMinimized.
+        AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+
         if maximizing {
             maximize(window, on: screen)
         } else if let screen {

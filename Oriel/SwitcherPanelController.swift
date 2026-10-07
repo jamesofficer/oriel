@@ -19,9 +19,17 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     // The reveal delay elapsed while the leader modifiers were still held;
     // show the panel when they're released instead.
     private var revealPending = false
+    private var hostingView: NSHostingView<SwitcherView>?
     private var rows: [SwitcherRow] = []
     private var closedApps: [CustomBinding] = []
     private let letterAssigner = LetterAssigner()
+    private let windowCache: WindowCache
+
+    init(windowCache: WindowCache) {
+        self.windowCache = windowCache
+        super.init()
+        windowCache.onChange = { [weak self] in self?.windowsDidChange() }
+    }
 
     func toggle() {
         if panel != nil {
@@ -32,12 +40,8 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     func show() {
-        let targetScreen = NSScreen.main
-        let visibleFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1_240, height: 900)
-        let panelWidth = min(1_040, max(1, visibleFrame.width - 80))
-        let maxPanelHeight = min(SwitcherLayout.maximumPanelHeight, max(1, visibleFrame.height - 80))
         let panel = SwitcherPanel(
-            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 1),
+            contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -54,7 +58,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         panel.onKeyDown = { [weak self] event in self?.handleKey(event) ?? false }
         panel.onFlagsChanged = { [weak self] event in self?.handleFlags(event) }
 
-        panelScreen = targetScreen
+        panelScreen = NSScreen.main
         self.panel = panel
 
         // Take keyboard focus before listing windows. Key events from a fast
@@ -62,7 +66,31 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
 
-        let windows = WindowManager.listWindows()
+        // Show the stored list at once. A new list replaces it when ready.
+        updateContent(with: windowCache.windows ?? WindowManager.listWindows())
+        windowCache.refresh()
+
+        // The panel stays invisible for a beat. A fast leader and letter
+        // switches without showing it; it appears only after a short pause.
+        let revealDelay = Double(AppPreferences.revealDelayMilliseconds()) / 1_000
+        let work = DispatchWorkItem { [weak self] in self?.reveal() }
+        revealWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + revealDelay, execute: work)
+    }
+
+    private func windowsDidChange() {
+        guard panel != nil, let windows = windowCache.windows else { return }
+
+        updateContent(with: windows)
+    }
+
+    private func updateContent(with windows: [WindowInfo]) {
+        guard let panel else { return }
+
+        let visibleFrame = panelScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1_240, height: 900)
+        let panelWidth = min(1_040, max(1, visibleFrame.width - 80))
+        let maxPanelHeight = min(SwitcherLayout.maximumPanelHeight, max(1, visibleFrame.height - 80))
+
         rows = letterAssigner.assign(to: windows)
 
         let bindings = CustomBindingsStore.shared.bindings
@@ -106,24 +134,24 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             onLaunch: { [weak self] binding in self?.launch(binding) },
             onClose: { [weak self] in self?.hide() }
         )
-        let hosting = NSHostingView(rootView: view)
         let contentSize = NSSize(width: panelWidth, height: panelHeight)
         panel.setContentSize(contentSize)
-        hosting.frame.size = contentSize
-        panel.contentView = hosting
+
+        if let hostingView {
+            hostingView.rootView = view
+            hostingView.frame.size = contentSize
+        } else {
+            let hosting = NSHostingView(rootView: view)
+            hosting.frame.size = contentSize
+            panel.contentView = hosting
+            hostingView = hosting
+        }
 
         let origin = NSPoint(
             x: visibleFrame.midX - contentSize.width / 2,
             y: visibleFrame.midY - contentSize.height / 2
         )
         panel.setFrameOrigin(origin)
-
-        // The panel stays invisible for a beat. A fast leader and letter
-        // switches without showing it; it appears only after a short pause.
-        let revealDelay = Double(AppPreferences.revealDelayMilliseconds()) / 1_000
-        let work = DispatchWorkItem { [weak self] in self?.reveal() }
-        revealWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + revealDelay, execute: work)
     }
 
     private func reveal() {
@@ -153,6 +181,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         revealPending = false
         panel?.orderOut(nil)
         panel = nil
+        hostingView = nil
         panelScreen = nil
         rows = []
         closedApps = []
