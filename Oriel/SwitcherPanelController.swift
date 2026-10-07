@@ -35,6 +35,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     private var searchResults: [SearchResult] = []
     private var selectedResultID: SearchResultID?
     private var searchPanelSize = CGSize.zero
+    private var usageHistory = WindowUsageHistory<WindowKey>()
     private let letterAssigner = LetterAssigner()
     private let windowCache: WindowCache
 
@@ -230,7 +231,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
                     appName: result.appName,
                     title: result.title,
                     group: searchGroup(for: result, pinnedBundleIDs: pinnedBundleIDs),
-                    lastUsed: nil
+                    lastUsed: lastUsed(result)
                 )
             },
             query: searchQuery
@@ -252,6 +253,12 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             let isPinned = window.app.bundleIdentifier.map(pinnedBundleIDs.contains) ?? false
             return isPinned ? .pinned : .other
         }
+    }
+
+    private func lastUsed(_ result: SearchResult) -> Int? {
+        guard case let .window(window) = result else { return nil }
+
+        return usageHistory.lastUsed(window.key)
     }
 
     private func renderSearch() {
@@ -370,6 +377,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     private func focus(_ window: WindowInfo) {
+        usageHistory.record(window.key)
         let moveTarget = AppPreferences.bringToCurrentScreen() ? panelScreen : nil
         let maximize = AppPreferences.maximizeOnFocus()
         WindowManager.focus(window, movingTo: moveTarget, maximizing: maximize)
