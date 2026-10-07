@@ -23,6 +23,7 @@ Oriel lives in your menu bar. Hit the leader key (⌘; by default) and a Spotlig
 
 - **Stable letters.** Each app keeps the same letter across launches (Safari is always `S`), and extra windows of the same app keep their own letters for as long as they're open, so switching between two browser windows never swaps their keys.
 - **Custom bindings.** Pin a specific key to a specific app in Settings; automatic assignment can never steal it. If the app isn't open, it's listed at the bottom of the switcher and its key launches it.
+- **Search windows.** Press the leader key two times quickly, then type part of an app name or window title. The list filters as you type, best match first, and Return switches to the selected window. Windows without a binding come first, then the windows you used most recently. You can turn this off in Settings.
 - **Clear window groups.** Pinned apps and other windows use separate columns, with active, minimized, and closed states shown clearly.
 - **Configurable leader key.** Record any combination that includes ⌃, ⌥ or ⌘. Connected external keyboards can override the default leader key.
 - **Adjustable panel.** Set the reveal delay from 0 to 1000 milliseconds and the panel opacity from 80% to 100%.
@@ -56,6 +57,10 @@ On first launch, grant **Accessibility** access when prompted (System Settings �
 | Open the switcher | ⌘; (configurable) |
 | Focus a window | its letter |
 | Flick between windows | keep ⌃ held, tap letters, release to finish |
+| Search windows | the leader key two times quickly, then type |
+| Move in search results | ↑ and ↓, or ⌃N and ⌃P |
+| Switch to the selected result | Return |
+| Leave search | Esc clears the text, then closes. ⌫ with no text goes back to the letters |
 | Dismiss | Esc, or the leader key again |
 
 Settings are in the menu bar icon → **Settings…**, covering the leader key, per-app bindings, panel appearance, and the behavior toggles above.

@@ -42,6 +42,7 @@ enum SwitcherLayout {
 struct SwitcherView: View {
     let content: SwitcherContent<SwitcherRow>
     let hasPermission: Bool
+    let searchKey: String?
     let panelWidth: CGFloat
     let listHeight: CGFloat
     let panelOpacity: Double
@@ -52,33 +53,20 @@ struct SwitcherView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
 
-    private var panelBackgroundColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.067, green: 0.086, blue: 0.106)
-            : Color(red: 0.910, green: 0.925, blue: 0.945)
+    private var colors: SwitcherColors {
+        SwitcherColors(colorScheme: colorScheme, contrast: accessibilityContrast)
     }
 
-    private var borderColor: Color {
-        if accessibilityContrast == .increased {
-            return colorScheme == .dark
-                ? Color(red: 0.376, green: 0.408, blue: 0.447)
-                : Color(red: 0.659, green: 0.678, blue: 0.710)
-        }
-        return colorScheme == .dark
-            ? Color(red: 0.204, green: 0.231, blue: 0.259)
-            : Color(red: 0.847, green: 0.859, blue: 0.878)
-    }
+    private var panelBackgroundColor: Color { colors.panelBackground }
+    private var borderColor: Color { colors.border }
+    private var rowSurfaceColor: Color { colors.rowSurface }
+    private var keySurfaceColor: Color { colors.keySurface }
 
-    private var rowSurfaceColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.137, green: 0.157, blue: 0.176)
-            : Color(red: 0.973, green: 0.976, blue: 0.984)
-    }
+    private var subtitle: String {
+        let letterHint = "Press a letter to switch to that window"
+        guard let searchKey else { return letterHint }
 
-    private var keySurfaceColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.184, green: 0.196, blue: 0.208)
-            : Color(red: 0.949, green: 0.953, blue: 0.961)
+        return "\(letterHint). Press \(searchKey) again to search."
     }
 
     var body: some View {
@@ -87,7 +75,7 @@ struct SwitcherView: View {
             Divider()
 
             if !hasPermission {
-                permissionHint
+                AccessibilityPermissionHint()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(24)
             } else if content.pinnedCount == 0 && content.otherCount == 0 {
@@ -144,7 +132,7 @@ struct SwitcherView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Oriel")
                     .font(.system(size: 15, weight: .semibold))
-                Text("Press a letter to switch to that window")
+                Text(subtitle)
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
             }
@@ -359,20 +347,5 @@ struct SwitcherView: View {
         let letter = row.letter.map { String($0).uppercased() } ?? "No shortcut"
         let state = row.window.isMinimized ? ", minimized" : ""
         return "\(letter), \(row.window.displayTitle), \(row.window.appName)\(state)"
-    }
-
-    private var permissionHint: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Accessibility permission needed", systemImage: "lock.shield")
-                .font(.headline)
-            Text("Oriel needs Accessibility access to list and focus windows.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Button("Open System Settings") {
-                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                NSWorkspace.shared.open(url)
-            }
-        }
-        .padding(16)
     }
 }

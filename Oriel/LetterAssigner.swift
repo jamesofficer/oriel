@@ -13,18 +13,6 @@ struct SwitcherRow: Identifiable {
     var id: UUID { window.id }
 }
 
-private struct WindowKey: Hashable {
-    let element: AXUIElement
-
-    static func == (lhs: WindowKey, rhs: WindowKey) -> Bool {
-        CFEqual(lhs.element, rhs.element)
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(CFHash(element))
-    }
-}
-
 final class LetterAssigner {
     private static let defaultsKey = "appLetterAssignments"
 

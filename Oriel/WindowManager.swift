@@ -18,6 +18,21 @@ nonisolated struct WindowInfo: Identifiable {
 
     var appName: String { app.localizedName ?? "Unknown" }
     var displayTitle: String { title.isEmpty ? appName : title }
+    var key: WindowKey { WindowKey(element: axWindow) }
+}
+
+/// Identifies the same real window across window lists, as each list
+/// gives every WindowInfo a new id.
+nonisolated struct WindowKey: Hashable {
+    let element: AXUIElement
+
+    static func == (lhs: WindowKey, rhs: WindowKey) -> Bool {
+        CFEqual(lhs.element, rhs.element)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(CFHash(element))
+    }
 }
 
 enum WindowManager {

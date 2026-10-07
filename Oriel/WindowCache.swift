@@ -3,7 +3,7 @@
 //  Oriel
 //
 //  Keeps a recent window list, so the switcher opens without waiting
-//  for slow apps. It lists again in the background when apps change.
+//  for slow apps. It updates in the background when apps change.
 //
 
 import AppKit

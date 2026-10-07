@@ -15,6 +15,7 @@ enum AppPreferences {
         static let panelOpacity = "switcherPanelOpacity"
         static let leaderKeyCode = "leaderKeyCode"
         static let leaderKeyModifiers = "leaderKeyModifiers"
+        static let searchOnDoublePress = "searchOnDoubleLeaderPress"
     }
 
     static let defaultBringToCurrentScreen = false
@@ -25,6 +26,7 @@ enum AppPreferences {
     static let revealDelayRange = 0...1_000
     static let defaultPanelOpacity = 0.9
     static let panelOpacityRange = 0.8...1.0
+    static let defaultSearchOnDoublePress = true
 
     static var defaultLeaderKeyCode: Int {
         Int(LeaderKey.default.keyCode)
@@ -44,6 +46,7 @@ enum AppPreferences {
             Key.panelOpacity: defaultPanelOpacity,
             Key.leaderKeyCode: defaultLeaderKeyCode,
             Key.leaderKeyModifiers: defaultLeaderKeyModifiers,
+            Key.searchOnDoublePress: defaultSearchOnDoublePress,
         ])
     }
 
@@ -61,6 +64,10 @@ enum AppPreferences {
 
     static func showClosedApps(in defaults: UserDefaults = .standard) -> Bool {
         boolValue(forKey: Key.showClosedApps, defaultValue: defaultShowClosedApps, in: defaults)
+    }
+
+    static func searchOnDoublePress(in defaults: UserDefaults = .standard) -> Bool {
+        boolValue(forKey: Key.searchOnDoublePress, defaultValue: defaultSearchOnDoublePress, in: defaults)
     }
 
     static func revealDelayMilliseconds(in defaults: UserDefaults = .standard) -> Int {
