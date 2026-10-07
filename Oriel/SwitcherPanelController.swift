@@ -7,11 +7,17 @@
 //
 
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 final class SwitcherPanelController: NSObject, NSWindowDelegate {
+    /// A second leader press within this time after the panel opens
+    /// starts search mode instead of closing the panel.
+    private static let doublePressInterval: TimeInterval = 0.35
+
     private var panel: SwitcherPanel?
     private var panelScreen: NSScreen?
+    private var shownAt: TimeInterval = 0
     private var revealWork: DispatchWorkItem?
     // True once a window was selected with the leader modifiers still held:
     // the panel stays up so further letters keep switching, until release.
@@ -20,8 +26,15 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     // show the panel when they're released instead.
     private var revealPending = false
     private var hostingView: NSHostingView<SwitcherView>?
+    private var searchHostingView: NSHostingView<SwitcherSearchView>?
+    private var windows: [WindowInfo] = []
     private var rows: [SwitcherRow] = []
     private var closedApps: [CustomBinding] = []
+    private var isSearching = false
+    private var searchQuery = ""
+    private var searchResults: [SearchResult] = []
+    private var selectedResultID: SearchResultID?
+    private var searchPanelSize = CGSize.zero
     private let letterAssigner = LetterAssigner()
     private let windowCache: WindowCache
 
@@ -32,10 +45,14 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     func toggle() {
-        if panel != nil {
-            hide()
-        } else {
+        let isDoublePress = ProcessInfo.processInfo.systemUptime - shownAt <= Self.doublePressInterval
+
+        if panel == nil {
             show()
+        } else if isDoublePress, !isSearching, AppPreferences.searchOnDoublePress() {
+            startSearch()
+        } else {
+            hide()
         }
     }
 
@@ -59,6 +76,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         panel.onFlagsChanged = { [weak self] event in self?.handleFlags(event) }
 
         panelScreen = NSScreen.main
+        shownAt = ProcessInfo.processInfo.systemUptime
         self.panel = panel
 
         // Take keyboard focus before listing windows. Key events from a fast
@@ -81,7 +99,12 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     private func windowsDidChange() {
         guard panel != nil, let windows = windowCache.windows else { return }
 
-        updateContent(with: windows)
+        if isSearching {
+            self.windows = windows
+            updateSearchResults(resetSelection: false)
+        } else {
+            updateContent(with: windows)
+        }
     }
 
     private func updateContent(with windows: [WindowInfo]) {
@@ -91,6 +114,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         let panelWidth = min(1_040, max(1, visibleFrame.width - 80))
         let maxPanelHeight = min(SwitcherLayout.maximumPanelHeight, max(1, visibleFrame.height - 80))
 
+        self.windows = windows
         rows = letterAssigner.assign(to: windows)
 
         let bindings = CustomBindingsStore.shared.bindings
@@ -154,14 +178,126 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         panel.setFrameOrigin(origin)
     }
 
-    private func reveal() {
+    /// Search keeps the panel's current size and place, so the panel does
+    /// not jump while the results change. It shows at once, even while
+    /// the leader modifiers are still held down.
+    private func startSearch() {
         guard let panel else { return }
+
+        isSearching = true
+        isFlicking = false
+        searchQuery = ""
+        searchPanelSize = panel.frame.size
+        updateSearchResults(resetSelection: true)
+
+        revealWork?.cancel()
+        revealWork = nil
+        makeVisible()
+    }
+
+    private func stopSearch() {
+        guard let panel, let hostingView else { return }
+
+        isSearching = false
+        searchQuery = ""
+        searchResults = []
+        selectedResultID = nil
+        searchHostingView = nil
+        panel.contentView = hostingView
+        updateContent(with: windows)
+    }
+
+    private func setSearchQuery(_ query: String) {
+        searchQuery = query
+        updateSearchResults(resetSelection: true)
+    }
+
+    /// The window list can change while the user types. Keep the same
+    /// window selected if it is still there, as its position can change.
+    private func updateSearchResults(resetSelection: Bool) {
+        let bindings = CustomBindingsStore.shared.bindings
+        let pinnedBundleIDs = Set(bindings.map(\.bundleID))
+        let openBundleIDs = Set(windows.compactMap(\.app.bundleIdentifier))
+        let closedBindings = AppPreferences.showClosedApps()
+            ? bindings.filter { !openBundleIDs.contains($0.bundleID) }
+            : []
+        let candidates = windows.map(SearchResult.window) + closedBindings.map(SearchResult.closedApp)
+
+        let order = WindowSearch.rank(
+            candidates.enumerated().map { index, result in
+                WindowSearchCandidate(
+                    id: index,
+                    appName: result.appName,
+                    title: result.title,
+                    group: searchGroup(for: result, pinnedBundleIDs: pinnedBundleIDs),
+                    lastUsed: nil
+                )
+            },
+            query: searchQuery
+        )
+        searchResults = order.map { candidates[$0] }
+
+        if resetSelection || !searchResults.contains(where: { $0.id == selectedResultID }) {
+            selectedResultID = searchResults.first?.id
+        }
+
+        renderSearch()
+    }
+
+    private func searchGroup(for result: SearchResult, pinnedBundleIDs: Set<String>) -> WindowSearchGroup {
+        switch result {
+        case .closedApp:
+            return .closed
+        case let .window(window):
+            let isPinned = window.app.bundleIdentifier.map(pinnedBundleIDs.contains) ?? false
+            return isPinned ? .pinned : .other
+        }
+    }
+
+    private func renderSearch() {
+        guard let panel else { return }
+
+        let view = SwitcherSearchView(
+            query: searchQuery,
+            results: searchResults,
+            selectedID: selectedResultID,
+            panelSize: searchPanelSize,
+            panelOpacity: AppPreferences.panelOpacity(),
+            onSelect: { [weak self] result in self?.open(result) }
+        )
+
+        if let searchHostingView {
+            searchHostingView.rootView = view
+        } else {
+            let hosting = NSHostingView(rootView: view)
+            hosting.frame.size = searchPanelSize
+            panel.contentView = hosting
+            searchHostingView = hosting
+        }
+    }
+
+    private func moveSelection(by offset: Int) {
+        guard let index = searchResults.firstIndex(where: { $0.id == selectedResultID }) else { return }
+
+        let newIndex = min(max(index + offset, 0), searchResults.count - 1)
+        selectedResultID = searchResults[newIndex].id
+        renderSearch()
+    }
+
+    private func reveal() {
+        guard panel != nil else { return }
         // While the leader modifiers are held down the user is flicking, not
         // browsing: stay hidden and reveal on release instead.
         if NSEvent.modifierFlags.contains(LeaderKey.current.cocoaModifiers) {
             revealPending = true
             return
         }
+        makeVisible()
+    }
+
+    private func makeVisible() {
+        guard let panel else { return }
+
         revealPending = false
         let animate = AppPreferences.animatePanel()
         if animate {
@@ -179,10 +315,16 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         revealWork = nil
         isFlicking = false
         revealPending = false
+        isSearching = false
+        searchQuery = ""
+        searchResults = []
+        selectedResultID = nil
         panel?.orderOut(nil)
         panel = nil
         hostingView = nil
+        searchHostingView = nil
         panelScreen = nil
+        windows = []
         rows = []
         closedApps = []
     }
@@ -197,7 +339,17 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
     private func select(_ row: SwitcherRow) {
         hide()
-        focus(row)
+        focus(row.window)
+    }
+
+    private func open(_ result: SearchResult) {
+        switch result {
+        case let .window(window):
+            hide()
+            focus(window)
+        case let .closedApp(binding):
+            launch(binding)
+        }
     }
 
     /// Switch focus but keep the session alive: the target app takes key
@@ -206,7 +358,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     /// modifiers were released in the gap.
     private func flick(to row: SwitcherRow) {
         isFlicking = true
-        focus(row)
+        focus(row.window)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self, let panel = self.panel else { return }
             if NSEvent.modifierFlags.contains(LeaderKey.current.cocoaModifiers) {
@@ -217,13 +369,16 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    private func focus(_ row: SwitcherRow) {
+    private func focus(_ window: WindowInfo) {
         let moveTarget = AppPreferences.bringToCurrentScreen() ? panelScreen : nil
         let maximize = AppPreferences.maximizeOnFocus()
-        WindowManager.focus(row.window, movingTo: moveTarget, maximizing: maximize)
+        WindowManager.focus(window, movingTo: moveTarget, maximizing: maximize)
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        if isSearching {
+            return handleSearchKey(event)
+        }
         if event.isARepeat {
             return true
         }
@@ -247,6 +402,49 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             return true
         }
         return false
+    }
+
+    /// Search ignores Command, as the user can still hold the leader's
+    /// Command key down when they start to type.
+    private func handleSearchKey(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags
+        let plainKey = event.charactersIgnoringModifiers?.lowercased()
+
+        switch Int(event.keyCode) {
+        case kVK_Escape:
+            searchQuery.isEmpty ? hide() : setSearchQuery("")
+        case kVK_Return, kVK_ANSI_KeypadEnter:
+            if let result = searchResults.first(where: { $0.id == selectedResultID }) {
+                open(result)
+            }
+        case kVK_DownArrow:
+            moveSelection(by: 1)
+        case kVK_UpArrow:
+            moveSelection(by: -1)
+        case kVK_Delete:
+            if searchQuery.isEmpty {
+                stopSearch()
+            } else if flags.contains(.option) {
+                setSearchQuery(SearchText.deletingLastWord(searchQuery))
+            } else {
+                setSearchQuery(String(searchQuery.dropLast()))
+            }
+        default:
+            if flags.contains(.control) {
+                if plainKey == "n" {
+                    moveSelection(by: 1)
+                } else if plainKey == "p" {
+                    moveSelection(by: -1)
+                }
+                return true
+            }
+
+            let characters = flags.contains(.command) ? event.charactersIgnoringModifiers : event.characters
+            guard let text = SearchText.typedText(characters) else { return false }
+
+            setSearchQuery(searchQuery + text)
+        }
+        return true
     }
 
     private func handleFlags(_ event: NSEvent) {

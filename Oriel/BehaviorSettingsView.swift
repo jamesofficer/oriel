@@ -14,6 +14,7 @@ struct BehaviorSettingsView: View {
     @AppStorage(AppPreferences.Key.showClosedApps) private var showClosedApps = AppPreferences.defaultShowClosedApps
     @AppStorage(AppPreferences.Key.revealDelayMilliseconds) private var revealDelayMilliseconds = AppPreferences.defaultRevealDelayMilliseconds
     @AppStorage(AppPreferences.Key.panelOpacity) private var panelOpacity = AppPreferences.defaultPanelOpacity
+    @AppStorage(AppPreferences.Key.searchOnDoublePress) private var searchOnDoublePress = AppPreferences.defaultSearchOnDoublePress
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
@@ -38,6 +39,13 @@ struct BehaviorSettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Toggle("Maximize window when focused", isOn: $maximizeOnFocus)
                 Text("When enabled, the focused window is resized to fill its screen edge to edge. This is a normal resize, not macOS full screen.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("Search with a double press", isOn: $searchOnDoublePress)
+                Text("Press the leader key two times quickly to search windows by name. Press Return to switch to the selected window.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
