@@ -8,7 +8,8 @@ import Carbon.HIToolbox
 import Combine
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let switcher = SwitcherPanelController()
+    let windowCache = WindowCache()
+    lazy var switcher = SwitcherPanelController(windowCache: windowCache)
     let keyboardMonitor = KeyboardDeviceMonitor()
     let keyboardOverridesStore = KeyboardLeaderOverridesStore.shared
     lazy var leaderKeyCoordinator = LeaderKeyCoordinator(store: keyboardOverridesStore)
@@ -18,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppPreferences.registerDefaults()
         promptForAccessibilityIfNeeded()
+        windowCache.start()
         startLeaderKey()
         keyboardMonitor.$connectedKeyboards
             .sink { [weak self] keyboards in

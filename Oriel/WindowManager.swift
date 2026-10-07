@@ -9,7 +9,7 @@
 import AppKit
 import ApplicationServices
 
-struct WindowInfo: Identifiable {
+nonisolated struct WindowInfo: Identifiable {
     let id = UUID()
     let app: NSRunningApplication
     let axWindow: AXUIElement
@@ -27,36 +27,55 @@ enum WindowManager {
 
     /// All standard windows of regular apps, grouped per app, apps sorted by
     /// name so the list order is stable across invocations.
-    static func listWindows() -> [WindowInfo] {
+    nonisolated static func listWindows() -> [WindowInfo] {
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .filter { $0.processIdentifier != NSRunningApplication.current.processIdentifier }
             .sorted { ($0.localizedName ?? "") .localizedCaseInsensitiveCompare($1.localizedName ?? "") == .orderedAscending }
 
-        var result: [WindowInfo] = []
-        for app in apps {
-            let axApp = AXUIElementCreateApplication(app.processIdentifier)
-            var value: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
-                  let windows = value as? [AXUIElement] else { continue }
-
-            for window in windows {
-                guard stringAttribute(window, kAXSubroleAttribute) == kAXStandardWindowSubrole else { continue }
-                result.append(WindowInfo(
-                    app: app,
-                    axWindow: window,
-                    title: stringAttribute(window, kAXTitleAttribute) ?? "",
-                    isMinimized: boolAttribute(window, kAXMinimizedAttribute)
-                ))
+        // Some apps take hundreds of milliseconds to answer each request
+        // (an unfocused Godot editor sleeps between frames). Ask all
+        // apps at the same time, so the slowest app sets the wait.
+        var windowsPerApp = [[WindowInfo]](repeating: [], count: apps.count)
+        windowsPerApp.withUnsafeMutableBufferPointer { buffer in
+            // Safe: each index is written by exactly one iteration.
+            nonisolated(unsafe) let buffer = buffer
+            DispatchQueue.concurrentPerform(iterations: apps.count) { index in
+                buffer[index] = standardWindows(of: apps[index])
             }
         }
-        return result
+        return windowsPerApp.flatMap { $0 }
+    }
+
+    /// Reads every window attribute in one request, as each request is a
+    /// round trip to the app and slow apps make each one costly.
+    nonisolated private static func standardWindows(of app: NSRunningApplication) -> [WindowInfo] {
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
+              let windows = value as? [AXUIElement] else { return [] }
+
+        let attributes = [kAXSubroleAttribute, kAXTitleAttribute, kAXMinimizedAttribute] as CFArray
+        return windows.compactMap { window in
+            var valuesRef: CFArray?
+            guard AXUIElementCopyMultipleAttributeValues(window, attributes, [], &valuesRef) == .success,
+                  let values = valuesRef as? [Any],
+                  values.count == 3,
+                  values[0] as? String == kAXStandardWindowSubrole else { return nil }
+
+            return WindowInfo(
+                app: app,
+                axWindow: window,
+                title: values[1] as? String ?? "",
+                isMinimized: values[2] as? Bool ?? false
+            )
+        }
     }
 
     static func focus(_ window: WindowInfo, movingTo screen: NSScreen? = nil, maximizing: Bool = false) {
-        if window.isMinimized {
-            AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        }
+        // The window list can be out of date, so do not trust isMinimized.
+        AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+
         if maximizing {
             maximize(window, on: screen)
         } else if let screen {
@@ -165,17 +184,5 @@ enum WindowManager {
         guard AXValueGetValue(positionRef as! AXValue, .cgPoint, &position),
               AXValueGetValue(sizeRef as! AXValue, .cgSize, &size) else { return nil }
         return CGRect(origin: position, size: size)
-    }
-
-    private static func stringAttribute(_ element: AXUIElement, _ attribute: String) -> String? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
-        return value as? String
-    }
-
-    private static func boolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return false }
-        return (value as? Bool) ?? false
     }
 }
