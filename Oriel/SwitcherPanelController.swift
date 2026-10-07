@@ -11,10 +11,6 @@ import Carbon.HIToolbox
 import SwiftUI
 
 final class SwitcherPanelController: NSObject, NSWindowDelegate {
-    /// A second leader press within this time after the panel opens
-    /// starts search mode instead of closing the panel.
-    private static let doublePressInterval: TimeInterval = 0.35
-
     private var panel: SwitcherPanel?
     private var panelScreen: NSScreen?
     private var shownAt: TimeInterval = 0
@@ -38,22 +34,27 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     private var usageHistory = WindowUsageHistory<WindowKey>()
     private let letterAssigner = LetterAssigner()
     private let windowCache: WindowCache
+    private let effectiveLeaderKey: () -> LeaderKey
 
-    init(windowCache: WindowCache) {
+    init(windowCache: WindowCache, effectiveLeaderKey: @escaping () -> LeaderKey) {
         self.windowCache = windowCache
+        self.effectiveLeaderKey = effectiveLeaderKey
         super.init()
         windowCache.onChange = { [weak self] in self?.windowsDidChange() }
     }
 
     func toggle() {
-        let isDoublePress = ProcessInfo.processInfo.systemUptime - shownAt <= Self.doublePressInterval
+        let action = LeaderPress.action(
+            isPanelOpen: panel != nil,
+            isSearching: isSearching,
+            isSearchEnabled: AppPreferences.searchOnDoublePress(),
+            secondsSincePanelOpened: ProcessInfo.processInfo.systemUptime - shownAt
+        )
 
-        if panel == nil {
-            show()
-        } else if isDoublePress, !isSearching, AppPreferences.searchOnDoublePress() {
-            startSearch()
-        } else {
-            hide()
+        switch action {
+        case .show: show()
+        case .search: startSearch()
+        case .hide: hide()
         }
     }
 
@@ -152,6 +153,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         let view = SwitcherView(
             content: content,
             hasPermission: WindowManager.hasAccessibilityPermission,
+            searchKey: AppPreferences.searchOnDoublePress() ? effectiveLeaderKey().displayString : nil,
             panelWidth: panelWidth,
             listHeight: listHeight,
             panelOpacity: panelOpacity,
@@ -213,8 +215,9 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         updateSearchResults(resetSelection: true)
     }
 
-    /// The window list can change while the user types. Keep the same
-    /// window selected if it is still there, as its position can change.
+    /// The window list can change while the user types, and a window
+    /// can move in the results. Keep the same window selected if it
+    /// is still in the results.
     private func updateSearchResults(resetSelection: Bool) {
         let bindings = CustomBindingsStore.shared.bindings
         let pinnedBundleIDs = Set(bindings.map(\.bundleID))
@@ -267,6 +270,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         let view = SwitcherSearchView(
             query: searchQuery,
             results: searchResults,
+            hasPermission: WindowManager.hasAccessibilityPermission,
             selectedID: selectedResultID,
             panelSize: searchPanelSize,
             panelOpacity: AppPreferences.panelOpacity(),
@@ -412,8 +416,9 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         return false
     }
 
-    /// Search ignores Command, as the user can still hold the leader's
-    /// Command key down when they start to type.
+    /// Search takes every key, so keys such as Tab do not beep. It ignores
+    /// Command and Option: the user can still hold the leader modifiers
+    /// when they start to type, and Option types special letters.
     private func handleSearchKey(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags
         let plainKey = event.charactersIgnoringModifiers?.lowercased()
@@ -447,8 +452,9 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
                 return true
             }
 
-            let characters = flags.contains(.command) ? event.charactersIgnoringModifiers : event.characters
-            guard let text = SearchText.typedText(characters) else { return false }
+            let ignoresModifiers = !flags.isDisjoint(with: [.command, .option])
+            let characters = ignoresModifiers ? event.charactersIgnoringModifiers : event.characters
+            guard let text = SearchText.typedText(characters) else { return true }
 
             setSearchQuery(searchQuery + text)
         }

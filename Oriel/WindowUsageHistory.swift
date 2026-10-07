@@ -2,8 +2,8 @@
 //  WindowUsageHistory.swift
 //  Oriel
 //
-//  Remembers which windows were switched to most recently. It is kept
-//  in memory only, so the history starts again when Oriel restarts.
+//  Remembers which windows were switched to most recently. It is
+//  kept in memory only, so it starts again when Oriel restarts.
 //
 
 import Foundation

@@ -40,6 +40,7 @@ enum SearchResult: Identifiable {
 struct SwitcherSearchView: View {
     let query: String
     let results: [SearchResult]
+    let hasPermission: Bool
     let selectedID: SearchResultID?
     let panelSize: CGSize
     let panelOpacity: Double
@@ -57,7 +58,11 @@ struct SwitcherSearchView: View {
             searchField
             Divider()
 
-            if results.isEmpty {
+            if !hasPermission {
+                AccessibilityPermissionHint()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(24)
+            } else if results.isEmpty {
                 Text("No windows match")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

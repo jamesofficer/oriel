@@ -9,7 +9,9 @@ import Combine
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let windowCache = WindowCache()
-    lazy var switcher = SwitcherPanelController(windowCache: windowCache)
+    lazy var switcher = SwitcherPanelController(windowCache: windowCache) { [unowned self] in
+        leaderKeyCoordinator.selection.leaderKey
+    }
     let keyboardMonitor = KeyboardDeviceMonitor()
     let keyboardOverridesStore = KeyboardLeaderOverridesStore.shared
     lazy var leaderKeyCoordinator = LeaderKeyCoordinator(store: keyboardOverridesStore)
