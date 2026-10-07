@@ -56,7 +56,7 @@ On first launch, grant **Accessibility** access when prompted (System Settings �
 | --- | --- |
 | Open the switcher | ⌘; (configurable) |
 | Focus a window | its letter |
-| Flick between windows | keep ⌃ held, tap letters, release to finish |
+| Flick between windows | keep the leader's modifier keys held, tap letters, release to finish |
 | Search windows | the leader key two times quickly, then type |
 | Move in search results | ↑ and ↓, or ⌃N and ⌃P |
 | Switch to the selected result | Return |
