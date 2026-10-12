@@ -33,10 +33,17 @@ Oriel lives in your menu bar. Hit the leader key (⌘; by default) and a Spotlig
 
 ## Installation
 
-Oriel isn't distributed pre-built yet, so you build it from source:
+1. Download the latest `Oriel-<version>.dmg` from [Releases](https://github.com/jamesofficer/oriel/releases/latest).
+2. Open the DMG and drag **Oriel** into **Applications**.
+3. Open Oriel. macOS blocks it the first time, because Oriel isn't notarized by Apple yet.
+4. Go to System Settings → Privacy & Security, scroll down, and click **Open Anyway** next to the Oriel message.
+
+You only need to do this once.
+
+### Build from source
 
 ```sh
-git clone https://github.com/jamesofficer/switchr.git Oriel
+git clone https://github.com/jamesofficer/oriel.git Oriel
 cd Oriel
 xcodebuild -project Oriel.xcodeproj -scheme Oriel -configuration Release build
 cp -R ~/Library/Developer/Xcode/DerivedData/Oriel-*/Build/Products/Release/Oriel.app /Applications/
@@ -48,7 +55,7 @@ On first launch, grant **Accessibility** access when prompted (System Settings �
 ### Requirements
 
 - macOS 26.4 or later
-- Xcode (to build)
+- Xcode (only to build from source)
 
 ## Usage
 
@@ -72,4 +79,11 @@ Build and run the automated tests with:
 ```sh
 xcodebuild -project Oriel.xcodeproj -scheme Oriel -configuration Debug build
 xcodebuild test -project Oriel.xcodeproj -scheme Oriel -configuration Debug
+```
+
+To make a release, build the DMG and upload it to GitHub:
+
+```sh
+./scripts/make-dmg.sh
+gh release create v<version> build/Oriel-<version>.dmg --generate-notes
 ```

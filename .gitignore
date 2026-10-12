@@ -65,3 +65,7 @@ fastlane/test_output
 .DS_Store
 DerivedData/
 *.xcuserstate
+
+# Release builds
+build/
+*.dmg
