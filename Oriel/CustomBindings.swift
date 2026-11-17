@@ -82,10 +82,6 @@ final class CustomBindingsStore: ObservableObject {
         save()
     }
 
-    func letter(for bundleID: String) -> Character? {
-        bindings.first { $0.bundleID == bundleID }?.letter
-    }
-
     var reservedLetters: Set<Character> {
         Set(bindings.compactMap(\.letter))
     }

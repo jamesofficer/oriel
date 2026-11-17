@@ -436,7 +436,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         if event.isARepeat {
             return true
         }
-        if event.keyCode == 53 { // Escape
+        if event.keyCode == UInt16(kVK_Escape) {
             hide()
             return true
         }

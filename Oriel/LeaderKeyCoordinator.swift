@@ -82,43 +82,20 @@ final class LeaderKeyCoordinator: ObservableObject {
             overrides.append(override)
         }
 
-        do {
-            try apply(resolvedSelection(overrides: overrides))
-            store.add(override)
-        } catch {
-            activationError = error.localizedDescription
-            throw error
-        }
+        try setOverrides(overrides)
     }
 
     func removeOverride(_ override: KeyboardLeaderOverride) throws {
-        let overrides = store.overrides.filter { $0.id != override.id }
-
-        do {
-            try apply(resolvedSelection(overrides: overrides))
-            store.remove(override)
-        } catch {
-            activationError = error.localizedDescription
-            throw error
-        }
+        try setOverrides(store.overrides.filter { $0.id != override.id })
     }
 
     func moveOverride(at index: Int, by offset: Int) throws {
-        let destinationIndex = index + offset
-        guard store.overrides.indices.contains(index),
-              store.overrides.indices.contains(destinationIndex) else { return }
+        var overrides = store.overrides
+        let destination = index + offset
+        guard overrides.indices.contains(index), overrides.indices.contains(destination) else { return }
 
-        let original = store.overrides
-        let destination = offset < 0 ? destinationIndex : destinationIndex + 1
-        store.move(fromOffsets: IndexSet(integer: index), toOffset: destination)
-
-        do {
-            try apply(resolvedSelection())
-        } catch {
-            store.setOverrides(original)
-            activationError = error.localizedDescription
-            throw error
-        }
+        overrides.insert(overrides.remove(at: index), at: destination)
+        try setOverrides(overrides)
     }
 
     func pause() -> Result<Void, HotKeyRegistrationError> {
@@ -138,6 +115,18 @@ final class LeaderKeyCoordinator: ObservableObject {
             overrides: overrides ?? store.overrides,
             connectedKeyboards: connectedKeyboards
         )
+    }
+
+    /// The list is saved only after its leader key registers, so
+    /// a list that cannot become active is never stored.
+    private func setOverrides(_ overrides: [KeyboardLeaderOverride]) throws {
+        do {
+            try apply(resolvedSelection(overrides: overrides))
+            store.setOverrides(overrides)
+        } catch {
+            activationError = error.localizedDescription
+            throw error
+        }
     }
 
     private func apply(_ candidate: LeaderKeySelection) throws {

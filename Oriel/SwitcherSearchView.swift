@@ -87,12 +87,7 @@ struct SwitcherSearchView: View {
             }
         }
         .frame(width: panelSize.width, height: panelSize.height)
-        .background(colors.panelBackground.opacity(panelOpacity), in: RoundedRectangle(cornerRadius: 16))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(colors.border, lineWidth: accessibilityContrast == .increased ? 1.5 : 1)
-        }
+        .switcherPanelChrome(colors: colors, opacity: panelOpacity)
     }
 
     private var searchField: some View {
@@ -122,15 +117,7 @@ struct SwitcherSearchView: View {
             .accessibilityLabel(query.isEmpty ? "Search windows" : "Search: \(query)")
 
             HStack(spacing: 8) {
-                Text("Esc")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .padding(.horizontal, 7)
-                    .frame(height: 28)
-                    .background(colors.keySurface, in: RoundedRectangle(cornerRadius: 7))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 7)
-                            .strokeBorder(colors.border, lineWidth: 1)
-                    }
+                EscKeyCap(colors: colors)
                 Text(query.isEmpty ? "Close" : "Clear")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)

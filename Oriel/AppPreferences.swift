@@ -36,20 +36,6 @@ enum AppPreferences {
         Int(LeaderKey.default.carbonModifiers)
     }
 
-    static func registerDefaults(in defaults: UserDefaults = .standard) {
-        defaults.register(defaults: [
-            Key.bringToCurrentScreen: defaultBringToCurrentScreen,
-            Key.maximizeOnFocus: defaultMaximizeOnFocus,
-            Key.animatePanel: defaultAnimatePanel,
-            Key.showClosedApps: defaultShowClosedApps,
-            Key.revealDelayMilliseconds: defaultRevealDelayMilliseconds,
-            Key.panelOpacity: defaultPanelOpacity,
-            Key.leaderKeyCode: defaultLeaderKeyCode,
-            Key.leaderKeyModifiers: defaultLeaderKeyModifiers,
-            Key.searchOnDoublePress: defaultSearchOnDoublePress,
-        ])
-    }
-
     static func bringToCurrentScreen(in defaults: UserDefaults = .standard) -> Bool {
         boolValue(forKey: Key.bringToCurrentScreen, defaultValue: defaultBringToCurrentScreen, in: defaults)
     }

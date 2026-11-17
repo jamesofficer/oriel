@@ -27,7 +27,7 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
         let hotKey = FakeHotKeyController()
         let store = KeyboardLeaderOverridesStore(defaults: defaults)
         let override = keyboardOverride()
-        store.add(override)
+        store.setOverrides([override])
         let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
         try coordinator.start {}
 
@@ -41,7 +41,7 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
         let hotKey = FakeHotKeyController()
         let store = KeyboardLeaderOverridesStore(defaults: defaults)
         let override = keyboardOverride()
-        store.add(override)
+        store.setOverrides([override])
         let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
         try coordinator.start {}
         let defaultSelection = coordinator.selection
@@ -86,7 +86,7 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
         let hotKey = FakeHotKeyController()
         let store = KeyboardLeaderOverridesStore(defaults: defaults)
         let override = keyboardOverride()
-        store.add(override)
+        store.setOverrides([override])
         let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
         try coordinator.start {}
         coordinator.updateConnectedKeyboards([device(for: override)])
@@ -129,7 +129,7 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
         let hotKey = FakeHotKeyController()
         let store = KeyboardLeaderOverridesStore(defaults: defaults)
         let override = keyboardOverride()
-        store.add(override)
+        store.setOverrides([override])
         let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
         hotKey.registrationError = .shortcutInUse
         XCTAssertThrowsError(try coordinator.start {})
@@ -154,17 +154,66 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
         XCTAssertEqual(hotKey.activeKey, defaultKey)
     }
 
-    private func keyboardOverride() -> KeyboardLeaderOverride {
+    func testReplacesOverrideForSameKeyboard() throws {
+        let store = KeyboardLeaderOverridesStore(defaults: defaults)
+        let coordinator = LeaderKeyCoordinator(hotKey: FakeHotKeyController(), store: store, defaults: defaults)
+        try coordinator.start {}
+        let first = keyboardOverride()
+        let replacement = KeyboardLeaderOverride(
+            keyboard: first.keyboard,
+            keyboardName: "Renamed Keyboard",
+            leaderKey: LeaderKey(keyCode: 9, carbonModifiers: 10)
+        )
+
+        try coordinator.addOverride(first)
+        try coordinator.addOverride(replacement)
+
+        XCTAssertEqual(store.overrides, [replacement])
+    }
+
+    func testMovedOverrideTakesPriority() throws {
+        let hotKey = FakeHotKeyController()
+        let store = KeyboardLeaderOverridesStore(defaults: defaults)
+        let first = keyboardOverride(serialNumber: "first", keyCode: 3)
+        let second = keyboardOverride(serialNumber: "second", keyCode: 5)
+        store.setOverrides([first, second])
+        let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
+        try coordinator.start {}
+        coordinator.updateConnectedKeyboards([device(for: first), device(for: second)])
+
+        try coordinator.moveOverride(at: 1, by: -1)
+
+        XCTAssertEqual(store.overrides, [second, first])
+        XCTAssertEqual(coordinator.selection, .override(second))
+        XCTAssertEqual(hotKey.activeKey, second.leaderKey)
+    }
+
+    func testRemovedOverrideReturnsToDefault() throws {
+        let hotKey = FakeHotKeyController()
+        let store = KeyboardLeaderOverridesStore(defaults: defaults)
+        let override = keyboardOverride()
+        store.setOverrides([override])
+        let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
+        try coordinator.start {}
+        coordinator.updateConnectedKeyboards([device(for: override)])
+
+        try coordinator.removeOverride(override)
+
+        XCTAssertTrue(store.overrides.isEmpty)
+        XCTAssertEqual(hotKey.activeKey, AppPreferences.leaderKey(in: defaults))
+    }
+
+    private func keyboardOverride(serialNumber: String = "serial", keyCode: UInt32 = 3) -> KeyboardLeaderOverride {
         KeyboardLeaderOverride(
             keyboard: KeyboardIdentity(
                 vendorID: 1,
                 productID: 2,
-                serialNumber: "serial",
+                serialNumber: serialNumber,
                 locationID: 10,
                 transport: "USB"
             ),
             keyboardName: "External Keyboard",
-            leaderKey: LeaderKey(keyCode: 3, carbonModifiers: 4)
+            leaderKey: LeaderKey(keyCode: keyCode, carbonModifiers: 4)
         )
     }
 

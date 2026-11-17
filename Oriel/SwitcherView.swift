@@ -57,7 +57,6 @@ struct SwitcherView: View {
         SwitcherColors(colorScheme: colorScheme, contrast: accessibilityContrast)
     }
 
-    private var panelBackgroundColor: Color { colors.panelBackground }
     private var borderColor: Color { colors.border }
     private var rowSurfaceColor: Color { colors.rowSurface }
     private var keySurfaceColor: Color { colors.keySurface }
@@ -114,12 +113,7 @@ struct SwitcherView: View {
             }
         }
         .frame(width: panelWidth)
-        .background(panelBackgroundColor.opacity(panelOpacity), in: RoundedRectangle(cornerRadius: 16))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(borderColor, lineWidth: accessibilityContrast == .increased ? 1.5 : 1)
-        }
+        .switcherPanelChrome(colors: colors, opacity: panelOpacity)
     }
 
     private var header: some View {
@@ -141,15 +135,7 @@ struct SwitcherView: View {
 
             Button(action: onClose) {
                 HStack(spacing: 8) {
-                    Text("Esc")
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .padding(.horizontal, 7)
-                        .frame(height: 28)
-                        .background(keySurfaceColor, in: RoundedRectangle(cornerRadius: 7))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 7)
-                                .strokeBorder(borderColor, lineWidth: 1)
-                        }
+                    EscKeyCap(colors: colors)
                     Text("Close")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
@@ -328,7 +314,7 @@ struct SwitcherView: View {
         .contentShape(RoundedRectangle(cornerRadius: 9))
         .onTapGesture { onLaunch(binding) }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(binding.key.uppercased()), \(binding.appName), \(binding.appName), closed")
+        .accessibilityLabel("\(binding.key.uppercased()), \(binding.appName), closed")
     }
 
     private func letterKey(_ letter: String, isClosed: Bool) -> some View {

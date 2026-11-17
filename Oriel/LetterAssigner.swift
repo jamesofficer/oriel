@@ -24,6 +24,7 @@ final class LetterAssigner {
     }
 
     func assign(to windows: [WindowInfo]) -> [SwitcherRow] {
+        let stored = persisted
         let bindings = CustomBindingsStore.shared.bindings
         let customLetters = Dictionary(
             uniqueKeysWithValues: bindings.compactMap { binding in
@@ -41,9 +42,12 @@ final class LetterAssigner {
             windows: descriptors,
             customLetters: customLetters,
             reservedLetters: CustomBindingsStore.shared.reservedLetters,
-            persistedLetters: persisted
+            persistedLetters: stored
         )
-        persisted = result.persistedLetters
+
+        if result.persistedLetters != stored {
+            persisted = result.persistedLetters
+        }
 
         var windowsByKey: [WindowKey: WindowInfo] = [:]
         for window in windows {
