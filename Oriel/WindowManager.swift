@@ -9,8 +9,7 @@
 import AppKit
 import ApplicationServices
 
-nonisolated struct WindowInfo: Identifiable {
-    let id = UUID()
+nonisolated struct WindowInfo {
     let app: NSRunningApplication
     let axWindow: AXUIElement
     let title: String
@@ -21,8 +20,8 @@ nonisolated struct WindowInfo: Identifiable {
     var key: WindowKey { WindowKey(element: axWindow) }
 }
 
-/// Identifies the same real window across window lists, as each list
-/// gives every WindowInfo a new id.
+/// Identifies the same real window across window lists, as each
+/// list makes a new WindowInfo for every window.
 nonisolated struct WindowKey: Hashable {
     let element: AXUIElement
 
@@ -87,37 +86,50 @@ enum WindowManager {
         }
     }
 
+    /// A busy app answers each request late. The requests run on this
+    /// queue, in the order they were made, so Oriel does not wait.
+    private static let focusQueue = DispatchQueue(label: "Oriel.WindowManager.focus", qos: .userInteractive)
+
     static func focus(_ window: WindowInfo, movingTo screen: NSScreen? = nil, maximizing: Bool = false) {
-        // The window list can be out of date, so do not trust isMinimized.
-        AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        // Read the screens here, on the main thread, in AX coordinates.
+        let target = screen.map { axRect(from: $0.visibleFrame) }
+        let screens = NSScreen.screens.map { axRect(from: $0.visibleFrame) }
+        let mainScreen = NSScreen.main.map { axRect(from: $0.visibleFrame) }
 
-        if maximizing {
-            maximize(window, on: screen)
-        } else if let screen {
-            move(window, to: screen)
+        focusQueue.async {
+            // The window list can be out of date, so do not trust isMinimized.
+            AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+
+            if maximizing {
+                maximize(window, on: target, screens: screens, fallback: mainScreen)
+            } else if let target {
+                move(window, to: target, screens: screens)
+            }
+            AXUIElementPerformAction(window.axWindow, kAXRaiseAction as CFString)
+            AXUIElementSetAttributeValue(window.axWindow, kAXMainAttribute as CFString, kCFBooleanTrue)
+
+            // Setting AXFrontmost works from a background app where cooperative
+            // activation can be refused; NSRunningApplication.activate is a backup.
+            let axApp = AXUIElementCreateApplication(window.app.processIdentifier)
+            AXUIElementSetAttributeValue(axApp, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+            window.app.activate()
         }
-        AXUIElementPerformAction(window.axWindow, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(window.axWindow, kAXMainAttribute as CFString, kCFBooleanTrue)
-
-        // Setting AXFrontmost works from a background app where cooperative
-        // activation can be refused; NSRunningApplication.activate is a backup.
-        let axApp = AXUIElementCreateApplication(window.app.processIdentifier)
-        AXUIElementSetAttributeValue(axApp, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
-        window.app.activate()
     }
 
     /// Resizes a window to fill the visible frame (edge to edge, below the
     /// menu bar and above the Dock) of the given screen, or of the screen the
     /// window is currently on. This is a plain resize, not macOS full screen.
-    private static func maximize(_ window: WindowInfo, on screen: NSScreen?) {
+    nonisolated private static func maximize(
+        _ window: WindowInfo,
+        on target: CGRect?,
+        screens: [CGRect],
+        fallback: CGRect?
+    ) {
         guard let frame = axFrame(of: window.axWindow) else { return }
-        let targetScreen = screen
-            ?? NSScreen.screens.first { axRect(from: $0.visibleFrame).contains(CGPoint(x: frame.midX, y: frame.midY)) }
-            ?? NSScreen.main
-        guard let targetScreen else { return }
-
-        let destination = axRect(from: targetScreen.visibleFrame)
-        guard !roughlyEqual(frame, destination) else { return }
+        let destination = target
+            ?? screens.first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) }
+            ?? fallback
+        guard let destination, !roughlyEqual(frame, destination) else { return }
 
         // When the window is crossing screens, apps clamp the size request to
         // the screen the window is still on, so one position+size pass lands
@@ -130,7 +142,7 @@ enum WindowManager {
         }
     }
 
-    private static func setFrame(_ element: AXUIElement, _ rect: CGRect) {
+    nonisolated private static func setFrame(_ element: AXUIElement, _ rect: CGRect) {
         var origin = rect.origin
         var size = rect.size
         if let positionValue = AXValueCreate(.cgPoint, &origin) {
@@ -143,7 +155,7 @@ enum WindowManager {
 
     /// Apps report frames with sub-point offsets; treat anything within a
     /// point as arrived so the reapply loop doesn't fight over rounding.
-    private static func roughlyEqual(_ a: CGRect, _ b: CGRect) -> Bool {
+    nonisolated private static func roughlyEqual(_ a: CGRect, _ b: CGRect) -> Bool {
         abs(a.minX - b.minX) < 1 && abs(a.minY - b.minY) < 1
             && abs(a.width - b.width) < 1 && abs(a.height - b.height) < 1
     }
@@ -151,15 +163,11 @@ enum WindowManager {
     /// Moves a window onto the given screen, preserving its position relative
     /// to its current screen's visible area (a window in the top-right corner
     /// of one monitor lands in the top-right of the target monitor).
-    private static func move(_ window: WindowInfo, to screen: NSScreen) {
+    nonisolated private static func move(_ window: WindowInfo, to destination: CGRect, screens: [CGRect]) {
         guard let frame = axFrame(of: window.axWindow) else { return }
-        let destination = axRect(from: screen.visibleFrame)
         guard !destination.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return }
 
-        let source = NSScreen.screens
-            .map { axRect(from: $0.visibleFrame) }
-            .first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) }
-            ?? frame
+        let source = screens.first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) } ?? frame
 
         let movedFrame = WindowPlacement.destinationFrame(
             windowFrame: frame,
@@ -189,7 +197,7 @@ enum WindowManager {
         )
     }
 
-    private static func axFrame(of element: AXUIElement) -> CGRect? {
+    nonisolated private static func axFrame(of element: AXUIElement) -> CGRect? {
         var positionRef: CFTypeRef?
         var sizeRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success,

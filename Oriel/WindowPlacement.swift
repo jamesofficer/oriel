@@ -5,7 +5,7 @@
 
 import CoreGraphics
 
-enum WindowPlacement {
+nonisolated enum WindowPlacement {
     static func destinationFrame(
         windowFrame: CGRect,
         sourceFrame: CGRect,

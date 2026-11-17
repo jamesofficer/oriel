@@ -10,7 +10,7 @@ import Foundation
 struct SwitcherRow: Identifiable {
     let letter: Character?
     let window: WindowInfo
-    var id: UUID { window.id }
+    var id: WindowKey { window.key }
 }
 
 final class LetterAssigner {

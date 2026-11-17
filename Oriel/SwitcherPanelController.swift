@@ -342,25 +342,61 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
     private func launch(_ binding: CustomBinding) {
         hide()
+
+        guard let url = appURL(for: binding) else {
+            showLaunchError(for: binding, message: "Oriel could not find this app. Remove the binding and add it again.")
+            return
+        }
+
         NSWorkspace.shared.openApplication(
-            at: URL(fileURLWithPath: binding.appPath),
+            at: url,
             configuration: NSWorkspace.OpenConfiguration()
-        )
+        ) { @Sendable [weak self] _, error in
+            guard let error else { return }
+
+            DispatchQueue.main.async {
+                self?.showLaunchError(for: binding, message: error.localizedDescription)
+            }
+        }
+    }
+
+    /// The saved path is the copy that the user chose. If the app moved
+    /// after that, macOS can still find it from its bundle identifier.
+    private func appURL(for binding: CustomBinding) -> URL? {
+        if FileManager.default.fileExists(atPath: binding.appPath) {
+            return URL(fileURLWithPath: binding.appPath)
+        }
+
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: binding.bundleID)
+    }
+
+    private func showLaunchError(for binding: CustomBinding, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Oriel could not open \(binding.appName)"
+        alert.informativeText = message
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     private func select(_ row: SwitcherRow) {
-        hide()
-        focus(row.window)
+        hideAndFocus(row.window)
     }
 
     private func open(_ result: SearchResult) {
         switch result {
         case let .window(window):
-            hide()
-            focus(window)
+            hideAndFocus(window)
         case let .closedApp(binding):
             launch(binding)
         }
+    }
+
+    /// hide() clears the panel screen, so read it before the panel closes.
+    private func hideAndFocus(_ window: WindowInfo) {
+        let screen = panelScreen
+        hide()
+        focus(window, panelScreen: screen)
     }
 
     /// Switch focus but keep the session alive: the target app takes key
@@ -369,7 +405,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     /// modifiers were released in the gap.
     private func flick(to row: SwitcherRow) {
         isFlicking = true
-        focus(row.window)
+        focus(row.window, panelScreen: panelScreen)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self, let panel = self.panel else { return }
             if NSEvent.modifierFlags.contains(effectiveLeaderKey().cocoaModifiers) {
@@ -380,7 +416,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    private func focus(_ window: WindowInfo) {
+    private func focus(_ window: WindowInfo, panelScreen: NSScreen?) {
         usageHistory.record(window.key)
         let moveTarget = AppPreferences.bringToCurrentScreen() ? panelScreen : nil
         let maximize = AppPreferences.maximizeOnFocus()
