@@ -23,11 +23,11 @@ struct WindowActionsView: View {
             header
             Divider()
 
-            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-                ForEach(WindowActionKey.groups, id: \.first?.key) { group in
+            Grid(alignment: .topLeading, horizontalSpacing: 24, verticalSpacing: 18) {
+                ForEach(WindowActionSection.all.pairs, id: \.first?.id) { sections in
                     GridRow {
-                        ForEach(group) { item in
-                            keyRow(item)
+                        ForEach(sections) { section in
+                            sectionView(section)
                         }
                     }
                 }
@@ -35,7 +35,7 @@ struct WindowActionsView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, SwitcherLayout.bodyVerticalPadding)
         }
-        .frame(width: 640)
+        .frame(width: 800)
         .switcherPanelChrome(colors: colors, opacity: panelOpacity)
     }
 
@@ -71,6 +71,32 @@ struct WindowActionsView: View {
         .frame(height: SwitcherLayout.headerHeight)
     }
 
+    private func sectionView(_ section: WindowActionSection) -> some View {
+        VStack(alignment: .leading, spacing: SwitcherLayout.columnSpacing) {
+            HStack(spacing: 7) {
+                Image(systemName: section.symbol)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                Text(section.title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .frame(height: SwitcherLayout.columnHeaderHeight)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            Grid(horizontalSpacing: 8, verticalSpacing: SwitcherLayout.rowSpacing) {
+                ForEach(section.keys.pairs, id: \.first?.id) { keys in
+                    GridRow {
+                        ForEach(keys) { item in
+                            keyRow(item)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func keyRow(_ item: WindowActionKey) -> some View {
         HStack(spacing: 10) {
             LetterKeyCap(letter: String(item.key).uppercased(), colors: colors)
@@ -91,5 +117,12 @@ struct WindowActionsView: View {
         .onTapGesture { onSelect(item.action) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(String(item.key).uppercased()), \(item.title)")
+    }
+}
+
+private extension Array {
+    /// The elements in groups of two, for a grid with two columns.
+    var pairs: [[Element]] {
+        stride(from: 0, to: count, by: 2).map { Array(self[$0..<Swift.min($0 + 2, count)]) }
     }
 }

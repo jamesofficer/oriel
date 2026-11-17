@@ -205,27 +205,36 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     }
 
     /// While the user holds the leader modifiers, the panel stays open
-    /// for more actions, and a repeat of an action goes to its next
-    /// step. Without the modifiers, one action closes the panel.
+    /// for more moves, and a repeat of a move goes to its next step.
+    /// Without the modifiers, one action closes the panel. An action
+    /// that takes the window off the screen always closes it.
     private func perform(_ action: WindowAction, holdingLeader: Bool) {
         guard let session, case let .windowActions(state) = session.mode else { return }
+
+        var newState = WindowActionsState(app: state.app)
 
         switch action {
         case .hideApp:
             hide()
             state.app.hide()
+            return
+        case .toggleFullScreen:
+            hide()
+            WindowManager.toggleFullScreen(mainWindowOf: state.app)
+            return
+        case .undoPlacement:
+            WindowManager.undoPlacement(mainWindowOf: state.app)
         case let .place(target):
-            let repeatCount = state.lastTarget == target ? state.repeatCount + 1 : 0
-            WindowManager.place(target, repeatCount: repeatCount, mainWindowOf: state.app)
+            newState.lastTarget = target
+            newState.repeatCount = state.lastTarget == target ? state.repeatCount + 1 : 0
+            WindowManager.place(target, repeatCount: newState.repeatCount, mainWindowOf: state.app)
+        }
 
-            if holdingLeader {
-                session.isFlicking = true
-                session.mode = .windowActions(
-                    WindowActionsState(app: state.app, lastTarget: target, repeatCount: repeatCount)
-                )
-            } else {
-                hide()
-            }
+        if holdingLeader {
+            session.isFlicking = true
+            session.mode = .windowActions(newState)
+        } else {
+            hide()
         }
     }
 

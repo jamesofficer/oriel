@@ -128,6 +128,9 @@ enum WindowManager {
         }
     }
 
+    /// Only code that runs on the request queue can use this history.
+    nonisolated(unsafe) private static var frameHistory = WindowFrameHistory<WindowKey>()
+
     /// Moves the main window of the app, which is the window the user works
     /// in. The sound tells the user that the window cannot take the move.
     static func place(_ target: WindowPlacement.Target, repeatCount: Int, mainWindowOf app: NSRunningApplication) {
@@ -143,12 +146,55 @@ enum WindowManager {
                       windowFrame: frame,
                       screens: screens
                   ) else {
-                DispatchQueue.main.async { NSSound.beep() }
+                beep()
                 return
             }
 
+            guard !roughlyEqual(frame, placement.frame) else { return }
+
+            frameHistory.record(frame, for: WindowKey(element: window))
             setFrame(of: window, from: frame, to: placement.frame, on: placement.screen)
         }
+    }
+
+    /// Puts the main window of the app back to the frame it had before
+    /// the last move. Each call goes one more move back in time.
+    static func undoPlacement(mainWindowOf app: NSRunningApplication) {
+        let screens = NSScreen.screens.map { axRect(from: $0.visibleFrame) }
+
+        requestQueue.async {
+            guard let window = mainWindow(of: app),
+                  !isFullScreen(window),
+                  let frame = axFrame(of: window),
+                  let earlierFrame = frameHistory.removeLastFrame(for: WindowKey(element: window)) else {
+                beep()
+                return
+            }
+
+            let center = CGPoint(x: earlierFrame.midX, y: earlierFrame.midY)
+            let screen = screens.first { $0.contains(center) } ?? earlierFrame
+            setFrame(of: window, from: frame, to: earlierFrame, on: screen)
+        }
+    }
+
+    /// This is macOS full screen, where the window gets its own Space.
+    static func toggleFullScreen(mainWindowOf app: NSRunningApplication) {
+        requestQueue.async {
+            guard let window = mainWindow(of: app) else {
+                beep()
+                return
+            }
+
+            let newValue: CFBoolean = isFullScreen(window) ? kCFBooleanFalse : kCFBooleanTrue
+
+            if AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, newValue) != .success {
+                beep()
+            }
+        }
+    }
+
+    nonisolated private static func beep() {
+        DispatchQueue.main.async { NSSound.beep() }
     }
 
     nonisolated private static func mainWindow(of app: NSRunningApplication) -> AXUIElement? {

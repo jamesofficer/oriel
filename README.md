@@ -24,7 +24,7 @@ Oriel lives in your menu bar. Hit the leader key (⌘; by default) and a Spotlig
 - **Stable letters.** Each app keeps the same letter across launches (Safari is always `S`), and extra windows of the same app keep their own letters for as long as they're open, so switching between two browser windows never swaps their keys.
 - **Custom bindings.** Pin a specific key to a specific app in Settings; automatic assignment can never steal it. If the app isn't open, it's listed at the bottom of the switcher and its key launches it.
 - **Search windows.** Press `/` in the switcher, then type part of an app name or window title. The list filters as you type, best match first, and Return switches to the selected window. Windows without a binding come first, then the windows you used most recently.
-- **Window actions.** Press the leader key two times quickly, then press a key to move or resize the current window: halves, thirds, maximize, center, or the next display. Keep the leader's modifier keys held to do more than one action. You can turn this off in Settings.
+- **Window actions.** Press the leader key two times quickly, then press a key to move or resize the current window: halves, thirds, maximize, center, full screen, or the next display. Keep the leader's modifier keys held to do more than one action. You can turn this off in Settings.
 - **Clear window groups.** Pinned apps and other windows use separate columns, with active, minimized, and closed states shown clearly.
 - **Configurable leader key.** Record any combination that includes ⌃, ⌥ or ⌘. Connected external keyboards can override the default leader key.
 - **Adjustable panel.** Set the reveal delay from 0 to 1000 milliseconds and the panel opacity from 80% to 100%.
@@ -80,11 +80,15 @@ Press the leader key two times quickly, then press one of these keys. The action
 | Left half, right half | L, R |
 | Top half, bottom half | T, B |
 | Maximize | M |
+| macOS full screen on and off | F |
 | Center | C |
 | Next display, previous display | N, P |
+| Undo the last move | U |
 | Hide the app | H |
 
 Keep the leader's modifier keys held to do more than one action, and release them to finish. With the keys held, press a half key again for one third of the screen, and one more time for two thirds.
+
+U puts the window back where it was before the last move. Press it again to go one more move back. Oriel remembers the moves of the last window it moved.
 
 Settings are in the menu bar icon → **Settings…**, covering the leader key, per-app bindings, panel appearance, and the behavior toggles above.
 
