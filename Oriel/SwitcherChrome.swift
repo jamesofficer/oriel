@@ -2,7 +2,7 @@
 //  SwitcherChrome.swift
 //  Oriel
 //
-//  The parts that the letter list and the search view both show.
+//  The parts that two or more of the panel views show.
 //
 
 import SwiftUI
@@ -18,6 +18,24 @@ struct EscKeyCap: View {
             .background(colors.keySurface, in: RoundedRectangle(cornerRadius: 7))
             .overlay {
                 RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(colors.border, lineWidth: 1)
+            }
+    }
+}
+
+struct LetterKeyCap: View {
+    let letter: String
+    var isDimmed = false
+    let colors: SwitcherColors
+
+    var body: some View {
+        Text(letter)
+            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+            .foregroundStyle(isDimmed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+            .frame(width: 32, height: 32)
+            .background(colors.keySurface, in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(colors.border, lineWidth: 1)
             }
     }

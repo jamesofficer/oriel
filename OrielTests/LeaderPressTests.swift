@@ -11,33 +11,33 @@ final class LeaderPressTests: XCTestCase {
         XCTAssertEqual(action(isPanelOpen: false, seconds: 0), .show)
     }
 
-    func testQuickSecondPressStartsSearch() {
-        XCTAssertEqual(action(seconds: 0.1), .search)
-        XCTAssertEqual(action(seconds: LeaderPress.doublePressInterval), .search)
+    func testQuickSecondPressStartsWindowActions() {
+        XCTAssertEqual(action(seconds: 0.1), .windowActions)
+        XCTAssertEqual(action(seconds: LeaderPress.doublePressInterval), .windowActions)
     }
 
     func testSlowSecondPressHidesPanel() {
         XCTAssertEqual(action(seconds: LeaderPress.doublePressInterval + 0.01), .hide)
     }
 
-    func testThirdPressHidesPanel() {
-        XCTAssertEqual(action(isSearching: true, seconds: 0.1), .hide)
+    func testQuickPressHidesPanelThatDoesNotShowLetters() {
+        XCTAssertEqual(action(isShowingLetters: false, seconds: 0.1), .hide)
     }
 
-    func testQuickSecondPressHidesPanelWhenSearchIsOff() {
-        XCTAssertEqual(action(isSearchEnabled: false, seconds: 0.1), .hide)
+    func testQuickSecondPressHidesPanelWhenWindowActionsAreOff() {
+        XCTAssertEqual(action(isWindowActionsEnabled: false, seconds: 0.1), .hide)
     }
 
     private func action(
         isPanelOpen: Bool = true,
-        isSearching: Bool = false,
-        isSearchEnabled: Bool = true,
+        isShowingLetters: Bool = true,
+        isWindowActionsEnabled: Bool = true,
         seconds: TimeInterval
     ) -> LeaderPressAction {
         LeaderPress.action(
             isPanelOpen: isPanelOpen,
-            isSearching: isSearching,
-            isSearchEnabled: isSearchEnabled,
+            isShowingLetters: isShowingLetters,
+            isWindowActionsEnabled: isWindowActionsEnabled,
             secondsSincePanelOpened: seconds
         )
     }

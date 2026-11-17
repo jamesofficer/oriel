@@ -100,7 +100,7 @@ enum WindowManager {
 
     /// A busy app answers each request late. The requests run on this
     /// queue, in the order they were made, so Oriel does not wait.
-    private static let focusQueue = DispatchQueue(label: "Oriel.WindowManager.focus", qos: .userInteractive)
+    private static let requestQueue = DispatchQueue(label: "Oriel.WindowManager.requests", qos: .userInteractive)
 
     static func focus(_ window: WindowInfo, movingTo screen: NSScreen? = nil, maximizing: Bool = false) {
         // Read the screens here, on the main thread, in AX coordinates.
@@ -108,7 +108,7 @@ enum WindowManager {
         let screens = NSScreen.screens.map { axRect(from: $0.visibleFrame) }
         let mainScreen = NSScreen.main.map { axRect(from: $0.visibleFrame) }
 
-        focusQueue.async {
+        requestQueue.async {
             // The window list can be out of date, so do not trust isMinimized.
             AXUIElementSetAttributeValue(window.axWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
 
@@ -128,6 +128,84 @@ enum WindowManager {
         }
     }
 
+    /// Only code that runs on the request queue can use this history.
+    nonisolated(unsafe) private static var frameHistory = WindowFrameHistory<WindowKey>()
+
+    /// Moves the main window of the app, which is the window the user works
+    /// in. The sound tells the user that the window cannot take the move.
+    static func place(_ target: WindowPlacement.Target, repeatCount: Int, mainWindowOf app: NSRunningApplication) {
+        let screens = NSScreen.screens.map { axRect(from: $0.visibleFrame) }
+
+        requestQueue.async {
+            guard let window = mainWindow(of: app),
+                  !isFullScreen(window),
+                  let frame = axFrame(of: window),
+                  let placement = WindowPlacement.frame(
+                      for: target,
+                      repeatCount: repeatCount,
+                      windowFrame: frame,
+                      screens: screens
+                  ) else {
+                beep()
+                return
+            }
+
+            guard !roughlyEqual(frame, placement.frame) else { return }
+
+            frameHistory.record(frame, for: WindowKey(element: window))
+            setFrame(of: window, from: frame, to: placement.frame, on: placement.screen)
+        }
+    }
+
+    /// Puts the main window of the app back to the frame it had before
+    /// the last move. Each call goes one more move back in time.
+    static func undoPlacement(mainWindowOf app: NSRunningApplication) {
+        let screens = NSScreen.screens.map { axRect(from: $0.visibleFrame) }
+
+        requestQueue.async {
+            guard let window = mainWindow(of: app),
+                  !isFullScreen(window),
+                  let frame = axFrame(of: window),
+                  let earlierFrame = frameHistory.removeLastFrame(for: WindowKey(element: window)) else {
+                beep()
+                return
+            }
+
+            let center = CGPoint(x: earlierFrame.midX, y: earlierFrame.midY)
+            let screen = screens.first { $0.contains(center) } ?? earlierFrame
+            setFrame(of: window, from: frame, to: earlierFrame, on: screen)
+        }
+    }
+
+    /// This is macOS full screen, where the window gets its own Space.
+    static func toggleFullScreen(mainWindowOf app: NSRunningApplication) {
+        requestQueue.async {
+            guard let window = mainWindow(of: app) else {
+                beep()
+                return
+            }
+
+            let newValue: CFBoolean = isFullScreen(window) ? kCFBooleanFalse : kCFBooleanTrue
+
+            if AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, newValue) != .success {
+                beep()
+            }
+        }
+    }
+
+    nonisolated private static func beep() {
+        DispatchQueue.main.async { NSSound.beep() }
+    }
+
+    nonisolated private static func mainWindow(of app: NSRunningApplication) -> AXUIElement? {
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+
+        return (value as! AXUIElement)
+    }
+
     /// Resizes a window to fill the visible frame (edge to edge, below the
     /// menu bar and above the Dock) of the given screen, or of the screen the
     /// window is currently on. This is a plain resize, not macOS full screen.
@@ -141,16 +219,41 @@ enum WindowManager {
         let destination = target
             ?? screens.first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) }
             ?? fallback
-        guard let destination, !roughlyEqual(frame, destination) else { return }
+        guard let destination else { return }
 
-        // When the window is crossing screens, apps clamp the size request to
-        // the screen the window is still on, so one position+size pass lands
-        // the move but keeps the old screen's size. Reapply until the frame
-        // settles (or the app refuses, e.g. a window with a maximum size).
+        setFrame(of: window.axWindow, from: frame, to: destination, on: destination)
+    }
+
+    /// When the window is crossing screens, apps clamp the size request to
+    /// the screen the window is still on, so one position+size pass lands
+    /// the move but keeps the old screen's size. Reapply until the frame
+    /// settles. An app can also refuse the size (a window with a minimum
+    /// size), and the window is then moved to be fully on the screen.
+    nonisolated private static func setFrame(
+        of element: AXUIElement,
+        from frame: CGRect,
+        to destination: CGRect,
+        on screen: CGRect
+    ) {
+        guard !roughlyEqual(frame, destination) else { return }
+
+        var current = frame
+
         for _ in 0..<3 {
-            setFrame(window.axWindow, destination)
-            guard let current = axFrame(of: window.axWindow),
-                  !roughlyEqual(current, destination) else { return }
+            setFrame(element, destination)
+            guard let newFrame = axFrame(of: element) else { return }
+
+            current = newFrame
+
+            if roughlyEqual(current, destination) {
+                return
+            }
+        }
+
+        var origin = WindowPlacement.frame(current, keptInside: screen).origin
+
+        if origin != current.origin, let positionValue = AXValueCreate(.cgPoint, &origin) {
+            AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionValue)
         }
     }
 
