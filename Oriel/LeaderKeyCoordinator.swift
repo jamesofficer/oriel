@@ -15,6 +15,9 @@ final class LeaderKeyCoordinator: ObservableObject {
     private let defaults: UserDefaults
     private var connectedKeyboards = Set<KeyboardIdentity>()
     private var isStarted = false
+    // Nil until a registration succeeds. The selection alone does
+    // not show this, as a registration can fail at startup.
+    private var registeredKey: LeaderKey?
 
     init(
         hotKey: HotKeyControlling = HotKeyCenter.shared,
@@ -29,6 +32,7 @@ final class LeaderKeyCoordinator: ObservableObject {
 
     func start(handler: @escaping () -> Void) throws {
         let selection = resolvedSelection()
+        isStarted = true
 
         do {
             try hotKey.register(
@@ -36,9 +40,9 @@ final class LeaderKeyCoordinator: ObservableObject {
                 modifiers: selection.leaderKey.carbonModifiers,
                 handler: handler
             )
+            registeredKey = selection.leaderKey
             self.selection = selection
             activationError = nil
-            isStarted = true
         } catch {
             activationError = error.localizedDescription
             throw error
@@ -137,11 +141,12 @@ final class LeaderKeyCoordinator: ObservableObject {
     }
 
     private func apply(_ candidate: LeaderKeySelection) throws {
-        if candidate.leaderKey != selection.leaderKey {
+        if candidate.leaderKey != registeredKey {
             try hotKey.replace(
                 keyCode: candidate.leaderKey.keyCode,
                 modifiers: candidate.leaderKey.carbonModifiers
             )
+            registeredKey = candidate.leaderKey
         }
 
         selection = candidate

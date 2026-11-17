@@ -68,6 +68,16 @@ final class CustomBindingsStoreTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([CustomBinding].self, from: storedData), store.bindings)
     }
 
+    func testSavesNewPathOfMovedApp() throws {
+        let store = CustomBindingsStore(defaults: defaults)
+        try store.add(binding(bundleID: "com.example.one", key: "a"))
+
+        store.updateAppPath("/Applications/Moved/Example.app", forBundleID: "com.example.one")
+
+        let reloaded = CustomBindingsStore(defaults: defaults)
+        XCTAssertEqual(reloaded.bindings.map(\.appPath), ["/Applications/Moved/Example.app"])
+    }
+
     private func binding(bundleID: String, key: String) -> CustomBinding {
         CustomBinding(
             bundleID: bundleID,

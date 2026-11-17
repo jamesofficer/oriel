@@ -343,7 +343,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     private func launch(_ binding: CustomBinding) {
         hide()
 
-        guard let url = appURL(for: binding) else {
+        guard let url = locateApp(for: binding) else {
             showLaunchError(for: binding, message: "Oriel could not find this app. Remove the binding and add it again.")
             return
         }
@@ -362,12 +362,18 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
 
     /// The saved path is the copy that the user chose. If the app moved
     /// after that, macOS can still find it from its bundle identifier.
-    private func appURL(for binding: CustomBinding) -> URL? {
+    /// The new path is then saved, which also repairs the app icon.
+    private func locateApp(for binding: CustomBinding) -> URL? {
         if FileManager.default.fileExists(atPath: binding.appPath) {
             return URL(fileURLWithPath: binding.appPath)
         }
 
-        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: binding.bundleID)
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: binding.bundleID) else {
+            return nil
+        }
+
+        CustomBindingsStore.shared.updateAppPath(url.path, forBundleID: binding.bundleID)
+        return url
     }
 
     private func showLaunchError(for binding: CustomBinding, message: String) {

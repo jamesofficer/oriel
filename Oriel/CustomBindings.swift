@@ -75,6 +75,13 @@ final class CustomBindingsStore: ObservableObject {
         save()
     }
 
+    func updateAppPath(_ appPath: String, forBundleID bundleID: String) {
+        guard let index = bindings.firstIndex(where: { $0.bundleID == bundleID }) else { return }
+
+        bindings[index].appPath = appPath
+        save()
+    }
+
     func letter(for bundleID: String) -> Character? {
         bindings.first { $0.bundleID == bundleID }?.letter
     }

@@ -4,7 +4,6 @@
 //
 
 import AppKit
-import Carbon.HIToolbox
 import SwiftUI
 
 struct KeyboardOverrideDraft: Identifiable {
@@ -18,10 +17,9 @@ struct KeyboardOverrideSheet: View {
     let keyboard: KeyboardDevice
     let existingOverride: KeyboardLeaderOverride?
     @ObservedObject var coordinator: LeaderKeyCoordinator
+    @StateObject private var recorder = ShortcutRecorder()
     @Environment(\.dismiss) private var dismiss
     @State private var leaderKey: LeaderKey?
-    @State private var isRecording = false
-    @State private var keyMonitor: Any?
     @State private var errorMessage: String?
 
     init(
@@ -46,22 +44,22 @@ struct KeyboardOverrideSheet: View {
                 .padding(.vertical, 7)
                 .background(Color.black.opacity(0.15), in: RoundedRectangle(cornerRadius: 7))
 
-            Text(isRecording
-                 ? "Press a key combination including ⌃, ⌥ or ⌘. Esc cancels."
+            Text(recorder.isRecording
+                 ? ShortcutCapture.instructions
                  : "Record the leader key to use while this keyboard is connected.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            if let errorMessage {
-                Text(errorMessage)
+            if let error = errorMessage ?? recorder.errorMessage {
+                Text(error)
                     .font(.callout)
                     .foregroundStyle(.red)
             }
 
             HStack {
-                Button(isRecording ? "Cancel Recording" : "Record Shortcut") {
-                    isRecording ? stopRecording() : startRecording()
+                Button(recorder.isRecording ? "Cancel Recording" : "Record Shortcut") {
+                    recorder.isRecording ? recorder.stop() : startRecording()
                 }
                 Button("Cancel") {
                     dismiss()
@@ -71,64 +69,17 @@ struct KeyboardOverrideSheet: View {
                     saveOverride()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(leaderKey == nil || isRecording)
+                .disabled(leaderKey == nil || recorder.isRecording)
             }
         }
         .padding(20)
         .frame(width: 380)
-        .onDisappear { stopRecording() }
+        .onDisappear { recorder.stop() }
     }
 
     private func startRecording() {
         errorMessage = nil
-
-        if case let .failure(error) = coordinator.pause() {
-            errorMessage = error.localizedDescription
-            NSSound.beep()
-            return
-        }
-
-        isRecording = true
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            capture(event)
-        }
-    }
-
-    private func stopRecording() {
-        if let keyMonitor {
-            NSEvent.removeMonitor(keyMonitor)
-        }
-
-        keyMonitor = nil
-
-        guard isRecording else { return }
-
-        isRecording = false
-
-        do {
-            try coordinator.resume()
-        } catch {
-            errorMessage = error.localizedDescription
-            NSSound.beep()
-        }
-    }
-
-    private func capture(_ event: NSEvent) -> NSEvent? {
-        if event.keyCode == UInt16(kVK_Escape),
-           event.modifierFlags.intersection([.control, .option, .command]).isEmpty {
-            stopRecording()
-            return nil
-        }
-
-        let modifiers = LeaderKey.carbonModifiers(from: event.modifierFlags)
-        guard modifiers & UInt32(controlKey | optionKey | cmdKey) != 0 else {
-            NSSound.beep()
-            return nil
-        }
-
-        leaderKey = LeaderKey(keyCode: UInt32(event.keyCode), carbonModifiers: modifiers)
-        stopRecording()
-        return nil
+        recorder.start(pausing: coordinator) { leaderKey = $0 }
     }
 
     private func saveOverride() {

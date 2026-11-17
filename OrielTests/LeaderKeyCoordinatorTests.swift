@@ -125,6 +125,35 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
         XCTAssertTrue(store.overrides.isEmpty)
     }
 
+    func testRegistersOverrideAfterStartFailed() {
+        let hotKey = FakeHotKeyController()
+        let store = KeyboardLeaderOverridesStore(defaults: defaults)
+        let override = keyboardOverride()
+        store.add(override)
+        let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
+        hotKey.registrationError = .shortcutInUse
+        XCTAssertThrowsError(try coordinator.start {})
+
+        coordinator.updateConnectedKeyboards([device(for: override)])
+
+        XCTAssertEqual(coordinator.selection, .override(override))
+        XCTAssertEqual(hotKey.activeKey, override.leaderKey)
+        XCTAssertNil(coordinator.activationError)
+    }
+
+    func testRegistersSameDefaultAfterStartFailed() throws {
+        let hotKey = FakeHotKeyController()
+        let store = KeyboardLeaderOverridesStore(defaults: defaults)
+        let coordinator = LeaderKeyCoordinator(hotKey: hotKey, store: store, defaults: defaults)
+        let defaultKey = AppPreferences.leaderKey(in: defaults)
+        hotKey.registrationError = .shortcutInUse
+        XCTAssertThrowsError(try coordinator.start {})
+
+        try coordinator.setDefaultLeader(defaultKey)
+
+        XCTAssertEqual(hotKey.activeKey, defaultKey)
+    }
+
     private func keyboardOverride() -> KeyboardLeaderOverride {
         KeyboardLeaderOverride(
             keyboard: KeyboardIdentity(
@@ -146,9 +175,12 @@ final class LeaderKeyCoordinatorTests: XCTestCase {
 
 private final class FakeHotKeyController: HotKeyControlling {
     var activeKey: LeaderKey?
+    var registrationError: HotKeyRegistrationError?
     var replacementError: HotKeyRegistrationError?
 
     func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) throws {
+        if let registrationError { throw registrationError }
+
         activeKey = LeaderKey(keyCode: keyCode, carbonModifiers: modifiers)
     }
 

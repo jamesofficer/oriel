@@ -198,14 +198,22 @@ enum WindowManager {
     }
 
     nonisolated private static func axFrame(of element: AXUIElement) -> CGRect? {
-        var positionRef: CFTypeRef?
-        var sizeRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success,
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeRef) == .success else { return nil }
         var position = CGPoint.zero
         var size = CGSize.zero
-        guard AXValueGetValue(positionRef as! AXValue, .cgPoint, &position),
-              AXValueGetValue(sizeRef as! AXValue, .cgSize, &size) else { return nil }
+        guard let positionValue = axValue(of: element, kAXPositionAttribute),
+              let sizeValue = axValue(of: element, kAXSizeAttribute),
+              AXValueGetValue(positionValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue, .cgSize, &size) else { return nil }
         return CGRect(origin: position, size: size)
+    }
+
+    /// Swift cannot check a cast to a Core Foundation type, so
+    /// compare the type identifier before the forced cast.
+    nonisolated private static func axValue(of element: AXUIElement, _ attribute: String) -> AXValue? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+
+        return (value as! AXValue)
     }
 }
