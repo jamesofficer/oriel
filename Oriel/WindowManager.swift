@@ -65,9 +65,21 @@ enum WindowManager {
     /// round trip to the app and slow apps make each one costly.
     nonisolated private static func standardWindows(of app: NSRunningApplication) -> [WindowInfo] {
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
-              let windows = value as? [AXUIElement] else { return [] }
+        let appAttributes = [kAXWindowsAttribute, kAXMainWindowAttribute] as CFArray
+        var appValuesRef: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(axApp, appAttributes, [], &appValuesRef) == .success,
+              let appValues = appValuesRef as? [Any],
+              appValues.count == 2,
+              var windows = appValues[0] as? [AXUIElement] else { return [] }
+
+        // An app lists only its windows on the Spaces that show now, but
+        // it gives its main window from all Spaces. Thus an app that is
+        // full screen or on a different desktop stays in the list.
+        let mainWindow = appValues[1] as CFTypeRef
+
+        if CFGetTypeID(mainWindow) == AXUIElementGetTypeID(), !windows.contains(where: { CFEqual($0, mainWindow) }) {
+            windows.append(mainWindow as! AXUIElement)
+        }
 
         let attributes = [kAXSubroleAttribute, kAXTitleAttribute, kAXMinimizedAttribute] as CFArray
         return windows.compactMap { window in
@@ -125,7 +137,7 @@ enum WindowManager {
         screens: [CGRect],
         fallback: CGRect?
     ) {
-        guard let frame = axFrame(of: window.axWindow) else { return }
+        guard !isFullScreen(window.axWindow), let frame = axFrame(of: window.axWindow) else { return }
         let destination = target
             ?? screens.first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) }
             ?? fallback
@@ -164,7 +176,7 @@ enum WindowManager {
     /// to its current screen's visible area (a window in the top-right corner
     /// of one monitor lands in the top-right of the target monitor).
     nonisolated private static func move(_ window: WindowInfo, to destination: CGRect, screens: [CGRect]) {
-        guard let frame = axFrame(of: window.axWindow) else { return }
+        guard !isFullScreen(window.axWindow), let frame = axFrame(of: window.axWindow) else { return }
         guard !destination.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return }
 
         let source = screens.first { $0.contains(CGPoint(x: frame.midX, y: frame.midY)) } ?? frame
@@ -195,6 +207,13 @@ enum WindowManager {
             width: cocoaRect.width,
             height: cocoaRect.height
         )
+    }
+
+    /// A full-screen window fills its own Space, so it must keep its frame.
+    nonisolated private static func isFullScreen(_ element: AXUIElement) -> Bool {
+        var value: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, "AXFullScreen" as CFString, &value)
+        return value as? Bool ?? false
     }
 
     nonisolated private static func axFrame(of element: AXUIElement) -> CGRect? {
