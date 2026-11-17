@@ -42,7 +42,7 @@ enum SwitcherLayout {
 struct SwitcherView: View {
     let content: SwitcherContent<SwitcherRow>
     let hasPermission: Bool
-    let searchKey: String?
+    let windowActionsKey: String?
     let panelWidth: CGFloat
     let listHeight: CGFloat
     let panelOpacity: Double
@@ -59,13 +59,12 @@ struct SwitcherView: View {
 
     private var borderColor: Color { colors.border }
     private var rowSurfaceColor: Color { colors.rowSurface }
-    private var keySurfaceColor: Color { colors.keySurface }
 
     private var subtitle: String {
-        let letterHint = "Press a letter to switch to that window"
-        guard let searchKey else { return letterHint }
+        let hint = "Press a letter to switch to that window, or / to search."
+        guard let windowActionsKey else { return hint }
 
-        return "\(letterHint). Press \(searchKey) again to search."
+        return "\(hint) Press \(windowActionsKey) again to move the current window."
     }
 
     var body: some View {
@@ -230,7 +229,7 @@ struct SwitcherView: View {
 
     private func rowView(_ row: SwitcherRow) -> some View {
         HStack(spacing: 10) {
-            letterKey(row.letter.map { String($0).uppercased() } ?? "", isClosed: false)
+            LetterKeyCap(letter: row.letter.map { String($0).uppercased() } ?? "", colors: colors)
 
             if let icon = row.window.app.icon {
                 Image(nsImage: icon)
@@ -279,7 +278,7 @@ struct SwitcherView: View {
 
     private func closedAppRow(_ binding: CustomBinding) -> some View {
         HStack(spacing: 10) {
-            letterKey(binding.key.uppercased(), isClosed: true)
+            LetterKeyCap(letter: binding.key.uppercased(), isDimmed: true, colors: colors)
 
             Image(nsImage: NSWorkspace.shared.icon(forFile: binding.appPath))
                 .resizable()
@@ -317,17 +316,6 @@ struct SwitcherView: View {
         .accessibilityLabel("\(binding.key.uppercased()), \(binding.appName), closed")
     }
 
-    private func letterKey(_ letter: String, isClosed: Bool) -> some View {
-        Text(letter)
-            .font(.system(size: 15, weight: .semibold, design: .monospaced))
-            .foregroundStyle(isClosed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-            .frame(width: 32, height: 32)
-            .background(keySurfaceColor, in: RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(borderColor, lineWidth: 1)
-            }
-    }
 
     private func rowAccessibilityLabel(_ row: SwitcherRow) -> String {
         let letter = row.letter.map { String($0).uppercased() } ?? "No shortcut"

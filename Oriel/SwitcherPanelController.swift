@@ -27,14 +27,14 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     func toggle() {
         let action = LeaderPress.action(
             isPanelOpen: session != nil,
-            isSearching: session?.search != nil,
-            isSearchEnabled: AppPreferences.searchOnDoublePress(),
+            isShowingLetters: session?.isShowingLetters ?? false,
+            isWindowActionsEnabled: AppPreferences.windowActionsOnDoublePress(),
             secondsSincePanelOpened: session.map { ProcessInfo.processInfo.systemUptime - $0.shownAt } ?? 0
         )
 
         switch action {
         case .show: show()
-        case .search: startSearch()
+        case .windowActions: startWindowActions()
         case .hide: hide()
         }
     }
@@ -85,11 +85,14 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
     private func windowsDidChange() {
         guard let session, let windows = windowCache.windows else { return }
 
-        if session.search != nil {
+        switch session.mode {
+        case .letters:
+            updateContent(with: windows)
+        case .search:
             session.windows = windows
             updateSearchResults(resetSelection: false)
-        } else {
-            updateContent(with: windows)
+        case .windowActions:
+            break
         }
     }
 
@@ -138,7 +141,7 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         let view = SwitcherView(
             content: content,
             hasPermission: WindowManager.hasAccessibilityPermission,
-            searchKey: AppPreferences.searchOnDoublePress() ? effectiveLeaderKey().displayString : nil,
+            windowActionsKey: AppPreferences.windowActionsOnDoublePress() ? effectiveLeaderKey().displayString : nil,
             panelWidth: panelWidth,
             listHeight: listHeight,
             panelOpacity: panelOpacity,
@@ -159,11 +162,71 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
             session.hostingView = hosting
         }
 
+        centerPanel(in: visibleFrame)
+    }
+
+    private func centerPanel(in visibleFrame: NSRect) {
+        guard let panel = session?.panel else { return }
+
         let origin = NSPoint(
-            x: visibleFrame.midX - contentSize.width / 2,
-            y: visibleFrame.midY - contentSize.height / 2
+            x: visibleFrame.midX - panel.frame.width / 2,
+            y: visibleFrame.midY - panel.frame.height / 2
         )
         panel.setFrameOrigin(origin)
+    }
+
+    /// The panel does not activate Oriel, so the app in front is still
+    /// the app that the user worked in. The actions apply to that app.
+    private func startWindowActions() {
+        guard let session else { return }
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            NSSound.beep()
+            hide()
+            return
+        }
+
+        session.isFlicking = false
+        session.mode = .windowActions(WindowActionsState(app: app))
+
+        let view = WindowActionsView(
+            app: app,
+            panelOpacity: AppPreferences.panelOpacity(),
+            onSelect: { [weak self] action in self?.perform(action, holdingLeader: false) }
+        )
+        let hosting = NSHostingView(rootView: view)
+        let contentSize = hosting.fittingSize
+        hosting.frame.size = contentSize
+        session.panel.setContentSize(contentSize)
+        session.panel.contentView = hosting
+
+        if let visibleFrame = session.screen?.visibleFrame {
+            centerPanel(in: visibleFrame)
+        }
+    }
+
+    /// While the user holds the leader modifiers, the panel stays open
+    /// for more actions, and a repeat of an action goes to its next
+    /// step. Without the modifiers, one action closes the panel.
+    private func perform(_ action: WindowAction, holdingLeader: Bool) {
+        guard let session, case let .windowActions(state) = session.mode else { return }
+
+        switch action {
+        case .hideApp:
+            hide()
+            state.app.hide()
+        case let .place(target):
+            let repeatCount = state.lastTarget == target ? state.repeatCount + 1 : 0
+            WindowManager.place(target, repeatCount: repeatCount, mainWindowOf: state.app)
+
+            if holdingLeader {
+                session.isFlicking = true
+                session.mode = .windowActions(
+                    WindowActionsState(app: state.app, lastTarget: target, repeatCount: repeatCount)
+                )
+            } else {
+                hide()
+            }
+        }
     }
 
     /// Search keeps the panel's current size and place, so the panel does
@@ -423,8 +486,20 @@ final class SwitcherPanelController: NSObject, NSWindowDelegate {
         // windows without closing; a plain letter selects and closes.
         let leaderFlags = effectiveLeaderKey().cocoaModifiers
         let holdingLeader = !leaderFlags.isEmpty && event.modifierFlags.contains(leaderFlags)
+
+        if case .windowActions = session.mode {
+            // Window actions take every key, so a wrong key does not beep.
+            if let action = WindowActionKey.action(for: letter) {
+                perform(action, holdingLeader: holdingLeader)
+            }
+            return true
+        }
         guard holdingLeader || !event.modifierFlags.contains(.command) else { return false }
 
+        if letter == "/" {
+            startSearch()
+            return true
+        }
         if let row = session.rows.first(where: { $0.letter == letter }) {
             holdingLeader ? flick(to: row) : select(row)
             return true
@@ -510,8 +585,8 @@ private final class SwitcherSession {
     let screen: NSScreen?
     let shownAt: TimeInterval
     var revealWork: DispatchWorkItem?
-    // True once a window was selected with the leader modifiers still held:
-    // the panel stays up so further letters keep switching, until release.
+    // True once the user acted with the leader modifiers still held:
+    // the panel stays up so further keys keep working, until release.
     var isFlicking = false
     // The reveal delay elapsed while the leader modifiers were still held;
     // show the panel when they're released instead.
@@ -520,14 +595,39 @@ private final class SwitcherSession {
     var windows: [WindowInfo] = []
     var rows: [SwitcherRow] = []
     var closedApps: [CustomBinding] = []
-    // Nil when the panel shows the letter list.
-    var search: SearchState?
+    var mode = SwitcherMode.letters
+
+    var isShowingLetters: Bool {
+        if case .letters = mode { return true }
+        return false
+    }
+
+    var search: SearchState? {
+        get {
+            guard case let .search(search) = mode else { return nil }
+            return search
+        }
+        set { mode = newValue.map(SwitcherMode.search) ?? .letters }
+    }
 
     init(panel: SwitcherPanel, screen: NSScreen?, shownAt: TimeInterval) {
         self.panel = panel
         self.screen = screen
         self.shownAt = shownAt
     }
+}
+
+private enum SwitcherMode {
+    case letters
+    case search(SearchState)
+    case windowActions(WindowActionsState)
+}
+
+private struct WindowActionsState {
+    let app: NSRunningApplication
+    // The last placement, and how many times in a row the user chose it.
+    var lastTarget: WindowPlacement.Target?
+    var repeatCount = 0
 }
 
 private struct SearchState {

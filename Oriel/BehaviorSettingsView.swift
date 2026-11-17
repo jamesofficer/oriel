@@ -14,7 +14,7 @@ struct BehaviorSettingsView: View {
     @AppStorage(AppPreferences.Key.showClosedApps) private var showClosedApps = AppPreferences.defaultShowClosedApps
     @AppStorage(AppPreferences.Key.revealDelayMilliseconds) private var revealDelayMilliseconds = AppPreferences.defaultRevealDelayMilliseconds
     @AppStorage(AppPreferences.Key.panelOpacity) private var panelOpacity = AppPreferences.defaultPanelOpacity
-    @AppStorage(AppPreferences.Key.searchOnDoublePress) private var searchOnDoublePress = AppPreferences.defaultSearchOnDoublePress
+    @AppStorage(AppPreferences.Key.windowActionsOnDoublePress) private var windowActionsOnDoublePress = AppPreferences.defaultWindowActionsOnDoublePress
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
@@ -44,8 +44,8 @@ struct BehaviorSettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Toggle("Search with a double press", isOn: $searchOnDoublePress)
-                Text("Press the leader key two times quickly to search windows by name. Press Return to switch to the selected window.")
+                Toggle("Window actions with a double press", isOn: $windowActionsOnDoublePress)
+                Text("Press the leader key two times quickly, then press a key to move or resize the current window. For example, L for the left half or M to maximize.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
